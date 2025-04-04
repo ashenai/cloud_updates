@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block title %}Latest Updates{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">Latest Cloud Updates</h1>
+
+<ul class="nav nav-tabs mb-4" id="updateTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="aws-tab" data-bs-toggle="tab" data-bs-target="#aws" type="button" role="tab" aria-controls="aws" aria-selected="true">
+            AWS Updates ({{ aws_updates|length }})
+        </button>
+    </li>
+    <li class="nav-item" role="presentation">
+        <button class="nav-link" id="azure-tab" data-bs-toggle="tab" data-bs-target="#azure" type="button" role="tab" aria-controls="azure" aria-selected="false">
+            Azure Updates ({{ azure_updates|length }})
+        </button>
+    </li>
+</ul>
+
+<div class="tab-content" id="updateTabsContent">
+    <div class="tab-pane fade show active" id="aws" role="tabpanel" aria-labelledby="aws-tab">
+        <div class="list-group">
+            {% for update in aws_updates %}
+            <a href="{{ update.url }}" class="list-group-item list-group-item-action" target="_blank">
+                <div class="d-flex w-100 justify-content-between">
+                    <h5 class="mb-1">{{ update.title }}</h5>
+                    <small>{{ update.published_date.strftime('%Y-%m-%d') }}</small>
+                </div>
+                <p class="mb-1">{{ update.description[:200] }}...</p>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+    
+    <div class="tab-pane fade" id="azure" role="tabpanel" aria-labelledby="azure-tab">
+        <div class="list-group">
+            {% for update in azure_updates %}
+            <a href="{{ update.url }}" class="list-group-item list-group-item-action" target="_blank">
+                <div class="d-flex w-100 justify-content-between">
+                    <h5 class="mb-1">{{ update.title }}</h5>
+                    <small>{{ update.published_date.strftime('%Y-%m-%d') }}</small>
+                </div>
+                <p class="mb-1">{{ update.description[:200] }}...</p>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var triggerTabList = [].slice.call(document.querySelectorAll('#updateTabs button'))
+    triggerTabList.forEach(function(triggerEl) {
+        var tabTrigger = new bootstrap.Tab(triggerEl)
+        triggerEl.addEventListener('click', function(event) {
+            event.preventDefault()
+            tabTrigger.show()
+        })
+    })
+})
+</script>
+{% endblock %}

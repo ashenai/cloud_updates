@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+
+{% block title %}Weekly Insights{% endblock %}
+
+{% block content %}
+<h1 class="mb-4">Weekly Cloud Insights</h1>
+
+<div class="mb-5">
+    <h2>Current Week ({{ week_start.strftime('%Y-%m-%d') }} to {{ week_end.strftime('%Y-%m-%d') }})</h2>
+    
+    <ul class="nav nav-tabs mb-4" id="serviceTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="aws-tab" data-bs-toggle="tab" data-bs-target="#aws" type="button" role="tab" aria-controls="aws" aria-selected="true">
+                AWS Services
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="azure-tab" data-bs-toggle="tab" data-bs-target="#azure" type="button" role="tab" aria-controls="azure" aria-selected="false">
+                Azure Services
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content" id="serviceTabsContent">
+        <div class="tab-pane fade show active" id="aws" role="tabpanel" aria-labelledby="aws-tab">
+            {% if aws_services %}
+                {% for service, updates in aws_services.items() %}
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h3 class="h5 mb-0">{{ service }} ({{ updates|length }} updates)</h3>
+                    </div>
+                    <div class="list-group list-group-flush">
+                        {% for update in updates %}
+                        <a href="{{ update.url }}" class="list-group-item list-group-item-action" target="_blank">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1">{{ update.title }}</h6>
+                                <small>{{ update.published_date.strftime('%Y-%m-%d') }}</small>
+                            </div>
+                            <p class="mb-1 small">{{ update.description[:150] }}...</p>
+                        </a>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <p>No AWS updates this week.</p>
+            {% endif %}
+        </div>
+        
+        <div class="tab-pane fade" id="azure" role="tabpanel" aria-labelledby="azure-tab">
+            {% if azure_services %}
+                {% for service, updates in azure_services.items() %}
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h3 class="h5 mb-0">{{ service }} ({{ updates|length }} updates)</h3>
+                    </div>
+                    <div class="list-group list-group-flush">
+                        {% for update in updates %}
+                        <a href="{{ update.url }}" class="list-group-item list-group-item-action" target="_blank">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1">{{ update.title }}</h6>
+                                <small>{{ update.published_date.strftime('%Y-%m-%d') }}</small>
+                            </div>
+                            <p class="mb-1 small">{{ update.description[:150] }}...</p>
+                        </a>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <p>No Azure updates this week.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="mt-5">
+    <h2>Historical Insights</h2>
+    <div class="list-group">
+        {% for insight in historical_insights %}
+        <div class="list-group-item">
+            <div class="d-flex w-100 justify-content-between">
+                <h5 class="mb-1">Week of {{ insight.week_start.strftime('%Y-%m-%d') }}</h5>
+                <small>{{ insight.created_at.strftime('%Y-%m-%d') }}</small>
+            </div>
+            <p class="mb-1">{{ insight.summary }}</p>
+            <small>AWS: {{ insight.aws_updates }} updates | Azure: {{ insight.azure_updates }} updates</small>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var triggerTabList = [].slice.call(document.querySelectorAll('#serviceTabs button'))
+    triggerTabList.forEach(function(triggerEl) {
+        var tabTrigger = new bootstrap.Tab(triggerEl)
+        triggerEl.addEventListener('click', function(event) {
+            event.preventDefault()
+            tabTrigger.show()
+        })
+    })
+})
+</script>
+{% endblock %}
