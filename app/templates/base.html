@@ -3,12 +3,75 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}{% endblock %} - Cloud Updates</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+    <title>{% block title %}Cloud Updates{% endblock %}</title>
+    
+    {% block styles %}
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: #FAF9F8;
+            color: #323130;
+        }
+        .navbar {
+            background-color: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .navbar-brand {
+            font-weight: 600;
+            color: #323130;
+        }
+        .nav-link {
+            color: #605E5C;
+            font-weight: 500;
+        }
+        .nav-link:hover {
+            color: #0078D4;
+        }
+        .nav-link.active {
+            color: #0078D4;
+        }
+        .btn-outline-primary {
+            color: #0078D4;
+            border-color: #0078D4;
+        }
+        .btn-outline-primary:hover {
+            background-color: #0078D4;
+            border-color: #0078D4;
+            color: white;
+        }
+        .btn-outline-secondary {
+            color: #605E5C;
+            border-color: #E1DFDD;
+        }
+        .btn-outline-secondary:hover {
+            background-color: #F3F2F1;
+            border-color: #E1DFDD;
+            color: #323130;
+        }
+        .container {
+            max-width: 1200px;
+        }
+        /* Provider Badges */
+        .provider-badge {
+            font-size: 0.8em;
+            padding: 0.3em 0.6em;
+            border-radius: 4px;
+        }
+        .aws-badge {
+            background-color: #232F3E;
+            color: white;
+        }
+        .azure-badge {
+            background-color: #0078D4;
+            color: white;
+        }
+    </style>
+    {% endblock %}
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
+    <nav class="navbar navbar-expand-lg navbar-light mb-4">
         <div class="container">
             <a class="navbar-brand" href="{{ url_for('index') }}">Cloud Updates</a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
@@ -17,15 +80,34 @@
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav">
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('index') }}">Latest Updates</a>
+                        <a class="nav-link" href="{{ url_for('aws_updates') }}">AWS Updates</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('insights') }}">Weekly Insights</a>
+                        <a class="nav-link" href="{{ url_for('azure_updates') }}">Azure Updates</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('insights') }}">Insights</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('admin') }}">Admin</a>
                     </li>
                 </ul>
             </div>
         </div>
     </nav>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="container">
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'success' if category == 'success' else 'danger' }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
 
     <div class="container mt-4">
         {% block content %}{% endblock %}
@@ -37,7 +119,9 @@
         </div>
     </footer>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    {% block scripts %}{% endblock %}
+    {% block scripts %}
+    <!-- Bootstrap Bundle with Popper -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
+    {% endblock %}
 </body>
 </html>

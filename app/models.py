@@ -22,23 +22,51 @@ to ensure its accuracy and functionality, users should:
 4. Not rely on this code for critical systems without proper validation
 """
 
-from datetime import datetime
 from app import db
+from datetime import datetime
+import json
 
 class Update(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    provider = db.Column(db.String(20), nullable=False)  # 'aws' or 'azure'
-    title = db.Column(db.String(200), nullable=False)
+    provider = db.Column(db.String(10), nullable=False)  # 'aws' or 'azure'
+    title = db.Column(db.String(500), nullable=False)
     description = db.Column(db.Text)
-    url = db.Column(db.String(500), nullable=False)
+    url = db.Column(db.String(500))
     published_date = db.Column(db.DateTime, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    _categories = db.Column('categories', db.Text, default='[]')  # JSON array of categories
+    _update_types = db.Column('update_types', db.Text, default='[]')  # JSON array of update types
     
-    # Add unique constraint to prevent duplicates
     __table_args__ = (
         db.UniqueConstraint('provider', 'title', 'published_date', name='unique_update'),
     )
     
+    @property
+    def categories(self):
+        return json.loads(self._categories)
+    
+    @categories.setter
+    def categories(self, value):
+        if isinstance(value, str):
+            self._categories = json.dumps([value])
+        elif isinstance(value, (list, tuple)):
+            self._categories = json.dumps(list(value))
+        else:
+            self._categories = '[]'
+    
+    @property
+    def update_types(self):
+        return json.loads(self._update_types)
+    
+    @update_types.setter
+    def update_types(self, value):
+        if isinstance(value, str):
+            self._update_types = json.dumps([value])
+        elif isinstance(value, (list, tuple)):
+            self._update_types = json.dumps(list(value))
+        else:
+            self._update_types = '[]'
+
     def __repr__(self):
         return f'<Update {self.provider}:{self.title}>'
 

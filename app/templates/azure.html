@@ -1,0 +1,193 @@
+{% extends "base_updates.html" %}
+
+{% block title %}Azure Updates{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="mb-0" style="font-size: 1.5em; color: #323130;">Azure Updates</h1>
+        <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">Back to Home</a>
+    </div>
+
+    <!-- Filter Section -->
+    <div class="filter-section">
+        <!-- Categories Filter -->
+        <div class="dropdown">
+            <button class="btn btn-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                Categories
+                <span class="badge bg-primary ms-1">{{ azure_categories|length }}</span>
+            </button>
+            <ul class="dropdown-menu py-2" style="max-height: 400px; overflow-y: auto;">
+                {% for category in azure_categories %}
+                <li>
+                    <div class="dropdown-item">
+                        <div class="form-check">
+                            <input class="form-check-input filter-checkbox" type="checkbox" id="category-{{ category|replace(' ', '-')|lower }}" data-filter="category" value="{{ category }}">
+                            <label class="form-check-label" for="category-{{ category|replace(' ', '-')|lower }}">
+                                {{ category }}
+                            </label>
+                        </div>
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+
+        <!-- Update Types Filter -->
+        <div class="dropdown">
+            <button class="btn btn-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                Update Types
+                <span class="badge bg-primary ms-1">{{ azure_update_types|length }}</span>
+            </button>
+            <ul class="dropdown-menu py-2" style="max-height: 400px; overflow-y: auto;">
+                {% for type in azure_update_types %}
+                <li>
+                    <div class="dropdown-item">
+                        <div class="form-check">
+                            <input class="form-check-input filter-checkbox" type="checkbox" id="type-{{ type|replace(' ', '-')|lower }}" data-filter="type" value="{{ type }}">
+                            <label class="form-check-label" for="type-{{ type|replace(' ', '-')|lower }}">
+                                {{ type }}
+                            </label>
+                        </div>
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+
+    <!-- Updates List -->
+    {% for update in azure_updates %}
+    <div class="card update-card mb-3" 
+         data-categories="{{ update.categories|join(',') }}"
+         data-update-types="{{ update.update_types|join(',') }}">
+        <div class="card-body">
+            <span class="badge provider-badge azure-badge float-end">Azure</span>
+            <h5 class="card-title">{{ update.title }}</h5>
+            <p class="card-text">{{ update.description[:200] }}...</p>
+            
+            <!-- Categories and Update Types -->
+            <div class="meta-tags">
+                {% if update.categories %}
+                <div class="tag-section">
+                    <div class="tag-section-title">Product Categories</div>
+                    <div class="tags-container">
+                        <div class="tag-list">
+                            {% for category in update.categories %}
+                            <span class="tag-list-item">{{ category }}</span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+                
+                {% if update.update_types %}
+                <div class="tag-section">
+                    <div class="tag-section-title">Update Types</div>
+                    <div class="tags-container">
+                        <div class="tag-list">
+                            {% for type in update.update_types %}
+                            <span class="tag-list-item">{{ type }}</span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+            
+            <div class="mt-3">
+                <small class="text-muted">{{ update.published_date.strftime('%Y-%m-%d %H:%M UTC') }}</small>
+                <a href="{{ update.url }}" class="btn btn-sm btn-outline-primary float-end" target="_blank">Read More</a>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<style>
+.filter-section {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+}
+
+.dropdown-menu {
+    --bs-dropdown-min-width: 200px;
+}
+
+.form-check {
+    padding-left: 2rem;
+}
+
+.form-check-input {
+    margin-left: -1.5rem;
+}
+
+.form-check-label {
+    cursor: pointer;
+}
+
+.dropdown-item:hover {
+    background-color: #f8f9fa;
+}
+
+.dropdown-item:active {
+    background-color: #e9ecef;
+    color: #000;
+}
+</style>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize all dropdowns
+    var dropdowns = [].slice.call(document.querySelectorAll('.dropdown-toggle'))
+    dropdowns.map(function (dropdown) {
+        return new bootstrap.Dropdown(dropdown)
+    });
+
+    // Get all checkboxes
+    const checkboxes = document.querySelectorAll('.filter-checkbox');
+    
+    // Prevent dropdown from closing when clicking checkboxes
+    document.querySelectorAll('.dropdown-menu').forEach(dropdown => {
+        dropdown.addEventListener('click', function(e) {
+            if (e.target.classList.contains('form-check-input') || 
+                e.target.classList.contains('form-check-label')) {
+                e.stopPropagation();
+            }
+        });
+    });
+    
+    // Function to update visible updates based on selected filters
+    function updateVisibleUpdates() {
+        // Get selected categories and types
+        const selectedCategories = Array.from(document.querySelectorAll('[data-filter="category"]:checked')).map(cb => cb.value);
+        const selectedTypes = Array.from(document.querySelectorAll('[data-filter="type"]:checked')).map(cb => cb.value);
+        
+        // Get all update cards
+        const updates = document.querySelectorAll('.update-card');
+        
+        // Show/hide updates based on filters
+        updates.forEach(update => {
+            const updateCategories = update.dataset.categories.split(',');
+            const updateTypes = update.dataset.updateTypes.split(',');
+            
+            const categoryMatch = selectedCategories.length === 0 || 
+                                selectedCategories.some(cat => updateCategories.includes(cat));
+            const typeMatch = selectedTypes.length === 0 || 
+                            selectedTypes.some(type => updateTypes.includes(type));
+            
+            update.style.display = (categoryMatch && typeMatch) ? 'block' : 'none';
+        });
+    }
+    
+    // Add event listeners to checkboxes
+    checkboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', updateVisibleUpdates);
+    });
+});
+</script>
+{% endblock %}

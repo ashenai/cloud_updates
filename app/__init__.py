@@ -25,21 +25,36 @@ to ensure its accuracy and functionality, users should:
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
+import os
 
+# Initialize SQLAlchemy
 db = SQLAlchemy()
 
 def create_app():
     app = Flask(__name__, template_folder='templates')
+    
+    # Configuration
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///cloud_updates.db'
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     
+    # Set a secure secret key for sessions
+    app.config['SECRET_KEY'] = os.environ.get('FLASK_SECRET_KEY', 'dev-secret-key-change-in-production')
+    
+    # Initialize extensions
     db.init_app(app)
     
-    from app import routes
-    scheduler = routes.init_routes(app)  # Store the scheduler object
-    app.scheduler = scheduler  # Attach it to the app for later use
-    
     with app.app_context():
+        # Import routes here to avoid circular imports
+        from . import routes
+        
+        # Initialize routes
+        routes.init_routes(app)
+        
+        # Create tables only if they don't exist
         db.create_all()
+        
+        # Print message only on first creation
+        if not os.path.exists(os.path.join(os.path.dirname(app.instance_path), 'instance/cloud_updates.db')):
+            print("Database tables created successfully!")
     
     return app

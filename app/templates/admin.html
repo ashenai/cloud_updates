@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+
+{% block title %}Admin - Cloud Updates{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <h1 class="h4 mb-4">Admin Dashboard</h1>
+                    
+                    <div class="row mb-4">
+                        <div class="col-md-4">
+                            <div class="card bg-light">
+                                <div class="card-body">
+                                    <h5 class="card-title mb-3">AWS Updates</h5>
+                                    <p class="card-text display-6">{{ aws_count }}</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card bg-light">
+                                <div class="card-body">
+                                    <h5 class="card-title mb-3">Azure Updates</h5>
+                                    <p class="card-text display-6">{{ azure_count }}</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card bg-light">
+                                <div class="card-body">
+                                    <h5 class="card-title mb-3">Last Refresh</h5>
+                                    <p class="card-text">
+                                        {% if last_refresh %}
+                                            {{ last_refresh.strftime('%Y-%m-%d %H:%M UTC') }}
+                                        {% else %}
+                                            Never
+                                        {% endif %}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-start">
+                        <form action="{{ url_for('admin_refresh') }}" method="post">
+                            <button type="submit" class="btn btn-primary">
+                                Refresh Updates
+                            </button>
+                        </form>
+                        <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">Back to Home</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.card {
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+}
+.bg-light {
+    background-color: #F8F9FA !important;
+}
+.display-6 {
+    font-size: 2rem;
+    font-weight: 600;
+    color: #323130;
+}
+.h4 {
+    color: #323130;
+}
+</style>
+{% endblock %}

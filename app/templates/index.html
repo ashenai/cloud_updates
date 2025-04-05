@@ -1,49 +1,226 @@
 {% extends "base.html" %}
 
-{% block title %}Latest Updates{% endblock %}
+{% block styles %}
+<style>
+    .update-card {
+        margin-bottom: 20px;
+        border: 1px solid #EDEBE9;
+        box-shadow: none;
+        border-radius: 2px;
+    }
+    .update-card .card-body {
+        padding: 20px;
+    }
+    .provider-badge {
+        font-size: 0.75em;
+        padding: 2px 8px;
+        border-radius: 2px;
+        font-weight: 500;
+    }
+    .aws-badge {
+        background-color: #FF9900;
+        color: black;
+    }
+    .azure-badge {
+        background-color: #0078D4;
+        color: white;
+    }
+    .meta-tags {
+        margin-top: 16px;
+    }
+    .tag-section {
+        display: flex;
+        margin-bottom: 8px;
+    }
+    .tag-section-title {
+        font-size: 0.875em;
+        color: #605E5C;
+        width: 140px;
+        flex-shrink: 0;
+    }
+    .tags-container {
+        font-size: 0.875em;
+        color: #323130;
+        flex: 1;
+        padding-top: 1px;
+    }
+    .tag-list {
+        display: inline;
+        margin: 0;
+        padding: 0;
+    }
+    .tag-list-item {
+        display: inline;
+        color: #323130;
+    }
+    .tag-list-item:not(:last-child)::after {
+        content: ", ";
+        color: #605E5C;
+    }
+    .nav-tabs {
+        margin-bottom: 20px;
+        border-bottom: 1px solid #EDEBE9;
+    }
+    .nav-tabs .nav-link {
+        color: #323130;
+        border: none;
+        padding: 8px 16px;
+        margin-right: 24px;
+        font-weight: 500;
+    }
+    .nav-tabs .nav-link.active {
+        color: #0078D4;
+        border-bottom: 2px solid #0078D4;
+    }
+    .tab-content {
+        padding-top: 20px;
+    }
+    /* Filter Styles */
+    .filter-section {
+        margin-bottom: 20px;
+        display: flex;
+        gap: 12px;
+        align-items: center;
+    }
+    .filter-group .btn {
+        padding: 4px 12px;
+        font-size: 0.875em;
+        font-weight: 500;
+        border: 1px solid #8A8886;
+        color: #323130;
+        background: white;
+        border-radius: 2px;
+    }
+    .filter-group .btn:hover {
+        background-color: #F3F2F1;
+        border-color: #323130;
+    }
+    .filter-dropdown {
+        min-width: 280px;
+        max-height: 320px;
+        overflow-y: auto;
+        border: 1px solid #EDEBE9;
+        border-radius: 2px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        padding: 0;
+    }
+    .filter-option {
+        display: flex;
+        align-items: center;
+        padding: 6px 12px;
+        margin: 0;
+    }
+    .filter-option:hover {
+        background-color: #F3F2F1;
+    }
+    .filter-checkbox {
+        margin-right: 8px;
+    }
+    .dropdown-header {
+        background-color: #F8F8F8;
+        padding: 8px 12px;
+        font-weight: 600;
+        color: #323130;
+        border-bottom: 1px solid #EDEBE9;
+        font-size: 0.875em;
+    }
+    .filter-count {
+        background-color: #F3F2F1;
+        padding: 1px 6px;
+        border-radius: 2px;
+        font-size: 0.875em;
+        margin-left: 6px;
+        color: #323130;
+    }
+    .card-title {
+        font-size: 1em;
+        font-weight: 600;
+        color: #323130;
+        margin-bottom: 8px;
+        line-height: 1.4;
+    }
+    .card-text {
+        color: #605E5C;
+        line-height: 1.5;
+        font-size: 0.875em;
+    }
+    .btn-outline-primary {
+        color: #0078D4;
+        border-color: #0078D4;
+        border-radius: 2px;
+        padding: 4px 12px;
+        font-size: 0.875em;
+    }
+    .btn-outline-primary:hover {
+        background-color: #0078D4;
+        border-color: #0078D4;
+    }
+    .text-muted {
+        color: #605E5C !important;
+        font-size: 0.875em;
+    }
+    .card {
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 16px rgba(0,0,0,0.1) !important;
+    }
+    .display-4 {
+        font-size: 2.5rem;
+        font-weight: 600;
+        color: #323130;
+    }
+    .lead {
+        font-size: 1.2rem;
+        color: #605E5C;
+    }
+    .provider-badge {
+        font-size: 1.2em;
+        padding: 0.5em 1em;
+    }
+    .h4 {
+        color: #323130;
+    }
+    .shadow-sm {
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05) !important;
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<h1 class="mb-4">Latest Cloud Updates</h1>
-
-<ul class="nav nav-tabs mb-4" id="updateTabs" role="tablist">
-    <li class="nav-item" role="presentation">
-        <button class="nav-link active" id="aws-tab" data-bs-toggle="tab" data-bs-target="#aws" type="button" role="tab" aria-controls="aws" aria-selected="true">
-            AWS Updates ({{ aws_updates|length }})
-        </button>
-    </li>
-    <li class="nav-item" role="presentation">
-        <button class="nav-link" id="azure-tab" data-bs-toggle="tab" data-bs-target="#azure" type="button" role="tab" aria-controls="azure" aria-selected="false">
-            Azure Updates ({{ azure_updates|length }})
-        </button>
-    </li>
-</ul>
-
-<div class="tab-content" id="updateTabsContent">
-    <div class="tab-pane fade show active" id="aws" role="tabpanel" aria-labelledby="aws-tab">
-        <div class="list-group">
-            {% for update in aws_updates %}
-            <a href="{{ update.url }}" class="list-group-item list-group-item-action" target="_blank">
-                <div class="d-flex w-100 justify-content-between">
-                    <h5 class="mb-1">{{ update.title }}</h5>
-                    <small>{{ update.published_date.strftime('%Y-%m-%d') }}</small>
-                </div>
-                <p class="mb-1">{{ update.description[:200] }}...</p>
-            </a>
-            {% endfor %}
-        </div>
+<div class="container mt-4">
+    <div class="text-center mb-5">
+        <h1 class="display-4 mb-3">Cloud Updates</h1>
+        <p class="lead text-muted">Stay informed about the latest updates from AWS and Azure</p>
     </div>
     
-    <div class="tab-pane fade" id="azure" role="tabpanel" aria-labelledby="azure-tab">
-        <div class="list-group">
-            {% for update in azure_updates %}
-            <a href="{{ update.url }}" class="list-group-item list-group-item-action" target="_blank">
-                <div class="d-flex w-100 justify-content-between">
-                    <h5 class="mb-1">{{ update.title }}</h5>
-                    <small>{{ update.published_date.strftime('%Y-%m-%d') }}</small>
+    <div class="row g-4">
+        <div class="col-md-6">
+            <div class="card h-100 shadow-sm">
+                <div class="card-body text-center">
+                    <div class="mb-4">
+                        <span class="badge provider-badge aws-badge">AWS</span>
+                    </div>
+                    <h2 class="h4 mb-3">Amazon Web Services</h2>
+                    <p class="card-text text-muted mb-4">Get the latest updates and announcements from Amazon Web Services.</p>
+                    <a href="{{ url_for('aws_updates') }}" class="btn btn-outline-primary">View AWS Updates</a>
                 </div>
-                <p class="mb-1">{{ update.description[:200] }}...</p>
-            </a>
-            {% endfor %}
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card h-100 shadow-sm">
+                <div class="card-body text-center">
+                    <div class="mb-4">
+                        <span class="badge provider-badge azure-badge">Azure</span>
+                    </div>
+                    <h2 class="h4 mb-3">Microsoft Azure</h2>
+                    <p class="card-text text-muted mb-4">Explore recent updates and announcements from Microsoft Azure.</p>
+                    <a href="{{ url_for('azure_updates') }}" class="btn btn-outline-primary">View Azure Updates</a>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -51,15 +228,101 @@
 
 {% block scripts %}
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    var triggerTabList = [].slice.call(document.querySelectorAll('#updateTabs button'))
-    triggerTabList.forEach(function(triggerEl) {
-        var tabTrigger = new bootstrap.Tab(triggerEl)
-        triggerEl.addEventListener('click', function(event) {
-            event.preventDefault()
-            tabTrigger.show()
-        })
-    })
-})
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize filter state
+        let selectedCategories = new Set();
+        let selectedTypes = new Set();
+        
+        // Get all Azure update cards
+        const updateCards = document.querySelectorAll('#azure-updates .update-card');
+        
+        // Function to update filter counts
+        function updateFilterCounts() {
+            document.getElementById('category-count').textContent = selectedCategories.size;
+            document.getElementById('type-count').textContent = selectedTypes.size;
+        }
+        
+        // Function to check if arrays intersect
+        function hasIntersection(arr1, arr2) {
+            return arr1.some(item => arr2.has(item));
+        }
+        
+        // Function to update visibility of cards based on filters
+        function updateVisibility() {
+            let visibleCount = 0;
+            
+            updateCards.forEach(card => {
+                // Parse the JSON data from data attributes
+                const categories = JSON.parse(card.dataset.categories);
+                const types = JSON.parse(card.dataset.types);
+                
+                // Card is visible if:
+                // 1. No category filters OR card has at least one selected category
+                // 2. No type filters OR card has at least one selected type
+                const categoryMatch = selectedCategories.size === 0 || 
+                                   hasIntersection(categories, selectedCategories);
+                const typeMatch = selectedTypes.size === 0 || 
+                                hasIntersection(types, selectedTypes);
+                
+                if (categoryMatch && typeMatch) {
+                    card.style.display = '';
+                    visibleCount++;
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+            
+            // Update the count in the Azure tab
+            document.getElementById('azure-count').textContent = visibleCount;
+        }
+        
+        // Add event listeners to checkboxes
+        document.querySelectorAll('.filter-checkbox').forEach(checkbox => {
+            checkbox.addEventListener('change', function(e) {
+                // Prevent dropdown from closing
+                e.stopPropagation();
+                
+                const filterType = this.dataset.filter;
+                const value = this.value;
+                
+                if (filterType === 'category') {
+                    if (this.checked) {
+                        selectedCategories.add(value);
+                    } else {
+                        selectedCategories.delete(value);
+                    }
+                } else if (filterType === 'type') {
+                    if (this.checked) {
+                        selectedTypes.add(value);
+                    } else {
+                        selectedTypes.delete(value);
+                    }
+                }
+                
+                updateFilterCounts();
+                updateVisibility();
+            });
+        });
+        
+        // Prevent dropdown from closing when clicking inside
+        document.querySelectorAll('.filter-dropdown').forEach(dropdown => {
+            dropdown.addEventListener('click', e => {
+                e.stopPropagation();
+            });
+        });
+        
+        // Initialize tab functionality
+        const triggerTabList = [].slice.call(document.querySelectorAll('#updateTabs button'));
+        triggerTabList.forEach(function(triggerEl) {
+            const tabTrigger = new bootstrap.Tab(triggerEl);
+            triggerEl.addEventListener('click', function(event) {
+                event.preventDefault();
+                tabTrigger.show();
+            });
+        });
+        
+        // Initialize filter counts
+        updateFilterCounts();
+    });
 </script>
 {% endblock %}

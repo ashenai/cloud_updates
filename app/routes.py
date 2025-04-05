@@ -22,15 +22,13 @@ to ensure its accuracy and functionality, users should:
 4. Not rely on this code for critical systems without proper validation
 """
 
-from flask import render_template, jsonify, current_app
-from app import db
+from datetime import datetime, timedelta
+from flask import render_template, redirect, url_for, flash
+from sqlalchemy import func, desc
 from app.models import Update, WeeklyInsight
 from app.scraper.aws_scraper import AWSScraper
 from app.scraper.azure_scraper import AzureScraper
-import schedule
-import time
-from datetime import datetime, timedelta
-import re
+from app import db
 
 def init_routes(app):
     @app.context_processor
@@ -39,173 +37,188 @@ def init_routes(app):
 
     @app.route('/')
     def index():
-        aws_updates = Update.query.filter_by(provider='aws').order_by(Update.published_date.desc()).limit(20).all()
-        azure_updates = Update.query.filter_by(provider='azure').order_by(Update.published_date.desc()).limit(20).all()
-        return render_template('index.html', aws_updates=aws_updates, azure_updates=azure_updates)
+        return render_template('index.html')
 
-    def extract_service_name(title, provider):
-        if provider == 'aws':
-            # Common AWS service patterns
-            patterns = [
-                r'Amazon ([\w\s]+)',
-                r'AWS ([\w\s]+)',
-                r'Amazon Web Services ([\w\s]+)'
-            ]
-            for pattern in patterns:
-                match = re.search(pattern, title)
-                if match:
-                    return match.group(1).strip()
-            return 'Other AWS Services'
-        else:
-            # Common Azure service patterns
-            patterns = [
-                r'Azure ([\w\s]+)',
-                r'Microsoft ([\w\s]+) Azure'
-            ]
-            for pattern in patterns:
-                match = re.search(pattern, title)
-                if match:
-                    return match.group(1).strip()
-            return 'Other Azure Services'
+    @app.route('/aws')
+    def aws_updates():
+        aws_updates = Update.query.filter_by(provider='aws').order_by(Update.published_date.desc()).limit(20).all()
+        return render_template('aws.html', aws_updates=aws_updates)
+
+    @app.route('/azure')
+    def azure_updates():
+        # Get all Azure updates
+        azure_updates = Update.query.filter_by(provider='azure').order_by(Update.published_date.desc()).all()
+        
+        # Extract unique categories and update types
+        azure_categories = set()
+        azure_update_types = set()
+        
+        for update in azure_updates:
+            if update.categories:
+                azure_categories.update(update.categories)
+            if update.update_types:
+                azure_update_types.update(update.update_types)
+        
+        # Convert to sorted lists
+        azure_categories = sorted(azure_categories)
+        azure_update_types = sorted(azure_update_types)
+        
+        return render_template('azure.html',
+                            azure_updates=azure_updates[:20],  # Limit to 20 updates initially
+                            azure_categories=azure_categories,
+                            azure_update_types=azure_update_types)
 
     @app.route('/insights')
     def insights():
-        # Get current week's updates
-        now = datetime.utcnow()
-        start_of_week = now - timedelta(days=now.weekday())
-        end_of_week = start_of_week + timedelta(days=6)
+        # Get the start of the current week
+        today = datetime.utcnow()
+        start_of_week = today - timedelta(days=today.weekday())
+        start_of_week = start_of_week.replace(hour=0, minute=0, second=0, microsecond=0)
 
-        # Get all updates from this week
+        # AWS Insights
         aws_updates = Update.query.filter(
             Update.provider == 'aws',
-            Update.published_date >= start_of_week,
-            Update.published_date <= end_of_week
+            Update.published_date >= start_of_week
         ).all()
 
+        aws_categories = {}
+        for update in aws_updates:
+            for category in update.categories:
+                aws_categories[category] = aws_categories.get(category, 0) + 1
+
+        aws_total = len(aws_updates)
+        aws_insights = [
+            {
+                'category': category,
+                'count': count,
+                'percentage': (count / aws_total * 100) if aws_total > 0 else 0
+            }
+            for category, count in sorted(aws_categories.items(), key=lambda x: x[1], reverse=True)
+        ]
+
+        # Azure Insights
         azure_updates = Update.query.filter(
             Update.provider == 'azure',
-            Update.published_date >= start_of_week,
-            Update.published_date <= end_of_week
+            Update.published_date >= start_of_week
         ).all()
 
-        # Group updates by service
-        aws_services = {}
-        azure_services = {}
-
-        for update in aws_updates:
-            service = extract_service_name(update.title, 'aws')
-            if service not in aws_services:
-                aws_services[service] = []
-            aws_services[service].append(update)
-
+        azure_categories = {}
         for update in azure_updates:
-            service = extract_service_name(update.title, 'azure')
-            if service not in azure_services:
-                azure_services[service] = []
-            azure_services[service].append(update)
+            for category in update.categories:
+                azure_categories[category] = azure_categories.get(category, 0) + 1
 
-        # Get historical insights
-        historical_insights = WeeklyInsight.query.order_by(WeeklyInsight.week_start.desc()).all()
+        azure_total = len(azure_updates)
+        azure_insights = [
+            {
+                'category': category,
+                'count': count,
+                'percentage': (count / azure_total * 100) if azure_total > 0 else 0
+            }
+            for category, count in sorted(azure_categories.items(), key=lambda x: x[1], reverse=True)
+        ]
 
-        return render_template('insights.html', 
-                            aws_services=aws_services,
-                            azure_services=azure_services,
-                            historical_insights=historical_insights,
-                            week_start=start_of_week,
-                            week_end=end_of_week)
+        # Weekly Trends
+        weekly_trends = []
+        for i in range(4):  # Last 4 weeks
+            week_start = start_of_week - timedelta(weeks=i)
+            week_end = week_start + timedelta(days=7)
+            
+            aws_count = Update.query.filter(
+                Update.provider == 'aws',
+                Update.published_date >= week_start,
+                Update.published_date < week_end
+            ).count()
+            
+            azure_count = Update.query.filter(
+                Update.provider == 'azure',
+                Update.published_date >= week_start,
+                Update.published_date < week_end
+            ).count()
+            
+            weekly_trends.append({
+                'week_start': week_start,
+                'aws_count': aws_count,
+                'azure_count': azure_count
+            })
+
+        return render_template('insights.html',
+                            aws_insights=aws_insights,
+                            azure_insights=azure_insights,
+                            weekly_trends=weekly_trends)
+
+    @app.route('/admin')
+    def admin():
+        aws_count = Update.query.filter_by(provider='aws').count()
+        azure_count = Update.query.filter_by(provider='azure').count()
+        latest_update = Update.query.order_by(Update.created_at.desc()).first()
+        last_refresh = latest_update.created_at if latest_update else None
+        return render_template('admin.html', aws_count=aws_count, azure_count=azure_count, last_refresh=last_refresh)
+
+    @app.route('/admin/refresh', methods=['GET', 'POST'])
+    def admin_refresh():
+        try:
+            # AWS Updates
+            aws_scraper = AWSScraper()
+            aws_updates = aws_scraper.scrape()
+            for update in aws_updates:
+                # Check if update already exists
+                existing_update = Update.query.filter_by(
+                    provider='aws',
+                    title=update.title,
+                    published_date=update.published_date
+                ).first()
+                
+                if not existing_update:
+                    db.session.add(update)
+
+            # Azure Updates
+            azure_scraper = AzureScraper()
+            azure_updates = azure_scraper.scrape()
+            for update in azure_updates:
+                # Check if update already exists
+                existing_update = Update.query.filter_by(
+                    provider='azure',
+                    title=update.title,
+                    published_date=update.published_date
+                ).first()
+                
+                if not existing_update:
+                    db.session.add(update)
+
+            db.session.commit()
+            flash('Successfully refreshed updates!', 'success')
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error saving update: {str(e)}', 'error')
+
+        return redirect(url_for('admin'))
 
     @app.route('/debug')
     def debug():
+        aws_updates = Update.query.filter_by(provider='aws').order_by(Update.published_date.desc()).limit(3).all()
+        azure_updates = Update.query.filter_by(provider='azure').order_by(Update.published_date.desc()).limit(3).all()
+        
         aws_count = Update.query.filter_by(provider='aws').count()
         azure_count = Update.query.filter_by(provider='azure').count()
-        
-        # Get sample updates
-        aws_updates = Update.query.filter_by(provider='aws').limit(3).all()
-        azure_updates = Update.query.filter_by(provider='azure').limit(3).all()
         
         debug_info = {
             'counts': {
                 'aws': aws_count,
                 'azure': azure_count
             },
-            'sample_aws': [{'title': u.title, 'provider': u.provider, 'date': u.published_date.isoformat()} for u in aws_updates],
-            'sample_azure': [{'title': u.title, 'provider': u.provider, 'date': u.published_date.isoformat()} for u in azure_updates]
+            'sample_aws': [{
+                'title': u.title,
+                'date': u.published_date.isoformat(),
+                'provider': u.provider,
+                'categories': u.categories,
+                'update_types': u.update_types
+            } for u in aws_updates],
+            'sample_azure': [{
+                'title': u.title,
+                'date': u.published_date.isoformat(),
+                'provider': u.provider,
+                'categories': u.categories,
+                'update_types': u.update_types
+            } for u in azure_updates]
         }
         return jsonify(debug_info)
-
-    def scrape_updates():
-        print("Fetching updates from AWS and Azure...")
-        with app.app_context():
-            try:
-                aws_scraper = AWSScraper()
-                azure_scraper = AzureScraper()
-                
-                aws_updates = aws_scraper.scrape()
-                azure_updates = azure_scraper.scrape()
-                
-                print(f"Found {len(aws_updates)} AWS updates and {len(azure_updates)} Azure updates")
-                
-                # Save updates to database
-                new_updates = 0
-                for update in aws_updates + azure_updates:
-                    try:
-                        db.session.add(update)
-                        db.session.commit()
-                        new_updates += 1
-                    except Exception as e:
-                        # Rollback the failed transaction
-                        db.session.rollback()
-                        if 'unique_update' in str(e):
-                            # Skip duplicates silently
-                            continue
-                        else:
-                            # Log other errors
-                            print(f"Error saving update: {e}")
-                
-                print(f"Added {new_updates} new updates to database")
-                
-                # Generate weekly insights
-                generate_weekly_insights()
-            except Exception as e:
-                print(f"Error during scraping: {e}")
-                db.session.rollback()
-
-    def generate_weekly_insights():
-        with app.app_context():
-            # Get current week's updates
-            now = datetime.utcnow()
-            start_of_week = now - timedelta(days=now.weekday())
-            end_of_week = start_of_week + timedelta(days=6)
-            
-            aws_count = Update.query.filter(
-                Update.provider == 'aws',
-                Update.published_date >= start_of_week,
-                Update.published_date <= end_of_week
-            ).count()
-            
-            azure_count = Update.query.filter(
-                Update.provider == 'azure',
-                Update.published_date >= start_of_week,
-                Update.published_date <= end_of_week
-            ).count()
-            
-            # Create summary
-            summary = f"This week had {aws_count} AWS updates and {azure_count} Azure updates."
-            
-            insight = WeeklyInsight(
-                week_start=start_of_week,
-                week_end=end_of_week,
-                aws_updates=aws_count,
-                azure_updates=azure_count,
-                summary=summary
-            )
-            db.session.add(insight)
-            db.session.commit()
-
-    # Schedule the scraper to run daily
-    schedule.every().day.at("09:00").do(scrape_updates)
-    
-    # Do an initial scrape
-    scrape_updates()
-
-    return schedule

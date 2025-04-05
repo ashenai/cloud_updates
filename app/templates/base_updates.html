@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+
+{% block styles %}
+{{ super() }}
+<style>
+    /* Provider Badges */
+    .provider-badge {
+        font-size: 0.8em;
+        padding: 0.3em 0.6em;
+        border-radius: 4px;
+    }
+    .aws-badge {
+        background-color: #232F3E;
+        color: white;
+    }
+    .azure-badge {
+        background-color: #0078D4;
+        color: white;
+    }
+
+    /* Update Cards */
+    .update-card {
+        margin-bottom: 1rem;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        transition: transform 0.2s ease;
+    }
+    .update-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    .update-card .card-title {
+        font-size: 1.1em;
+        margin-bottom: 0.75rem;
+        color: #323130;
+    }
+    .update-card .card-text {
+        color: #605E5C;
+        font-size: 0.95em;
+    }
+
+    /* Tags */
+    .meta-tags {
+        margin-top: 1rem;
+    }
+    .tag-section {
+        margin-bottom: 0.5rem;
+    }
+    .tag-section-title {
+        font-size: 0.8em;
+        color: #605E5C;
+        margin-bottom: 0.25rem;
+    }
+    .tags-container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+    .tag-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+    .tag-list-item {
+        font-size: 0.8em;
+        padding: 0.2em 0.6em;
+        background-color: #F3F2F1;
+        border-radius: 12px;
+        color: #323130;
+    }
+
+    /* Filter Section */
+    .filter-section {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+        flex-wrap: wrap;
+    }
+    .filter-group .btn {
+        border: 1px solid #E1DFDD;
+        background: white;
+        color: #323130;
+        font-size: 0.9em;
+        padding: 0.5rem 1rem;
+    }
+    .filter-count {
+        background: #0078D4;
+        color: white;
+        padding: 0.2em 0.5em;
+        border-radius: 10px;
+        margin-left: 0.5rem;
+        font-size: 0.8em;
+    }
+    .filter-dropdown {
+        padding: 0.5rem;
+        max-height: 300px;
+        overflow-y: auto;
+    }
+    .filter-option {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem;
+        margin: 0;
+        cursor: pointer;
+    }
+    .filter-option:hover {
+        background-color: #F3F2F1;
+    }
+    .filter-checkbox {
+        margin-right: 0.5rem;
+    }
+    .dropdown-header {
+        font-weight: 600;
+        color: #323130;
+        padding: 0.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="nav-header">
+    <div class="container">
+        <nav class="nav">
+            <a class="nav-link {% if request.endpoint == 'aws_updates' %}active{% endif %}" href="{{ url_for('aws_updates') }}">AWS Updates</a>
+            <a class="nav-link {% if request.endpoint == 'azure_updates' %}active{% endif %}" href="{{ url_for('azure_updates') }}">Azure Updates</a>
+        </nav>
+    </div>
+</div>
+
+<div class="container mt-4">
+    {% block updates_content %}{% endblock %}
+</div>
+{% endblock %}

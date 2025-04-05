@@ -1,0 +1,26 @@
+{% extends "base_updates.html" %}
+
+{% block title %}AWS Updates{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="mb-0" style="font-size: 1.5em; color: #323130;">AWS Updates</h1>
+        <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">Back to Home</a>
+    </div>
+
+    {% for update in aws_updates %}
+    <div class="card update-card mb-3">
+        <div class="card-body">
+            <span class="badge provider-badge aws-badge float-end">AWS</span>
+            <h5 class="card-title">{{ update.title }}</h5>
+            <p class="card-text">{{ update.description[:200] }}...</p>
+            <div class="mt-3">
+                <small class="text-muted">{{ update.published_date.strftime('%Y-%m-%d %H:%M UTC') }}</small>
+                <a href="{{ update.url }}" class="btn btn-sm btn-outline-primary float-end" target="_blank">Read More</a>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}
