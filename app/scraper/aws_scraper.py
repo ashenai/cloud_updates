@@ -33,71 +33,141 @@ from time import mktime
 class AWSScraper:
     def __init__(self):
         self.feed_url = "https://aws.amazon.com/about-aws/whats-new/recent/feed/"
-        
-        # Define update patterns
-        self.update_patterns = [
-            (r'\bpreview\b', 'Preview'),
-            (r'now available|general availability|generally available|\bga\b', 'Generally Available'),
-            (r'launch|introduce|announce|release', 'Features'),
-            (r'retire|deprecate|end of life|end-of-life', 'Retirements'),
-            (r'region|datacenter|data center|availability zone', 'Regions & Datacenters'),
-            (r'price|pricing|cost', 'Pricing & Offerings'),
-            (r'compliance|iso|hipaa|fedramp|soc', 'Compliance'),
-            (r'security|encryption|protect', 'Security'),
-            (r'sdk|api|cli|tool', 'SDK and Tools')
+        # Common AWS/Amazon service names
+        self.service_patterns = [
+            r'AWS Lambda',
+            r'AWS Step Functions',
+            r'Amazon S3',
+            r'Amazon Simple Storage Service',
+            r'AWS EC2',
+            r'Amazon Elastic Compute Cloud',
+            r'Amazon ECS',
+            r'Amazon Elastic Container Service',
+            r'AWS EKS',
+            r'Amazon Elastic Kubernetes Service',
+            r'Amazon RDS',
+            r'Amazon Relational Database Service',
+            r'Amazon DynamoDB',
+            r'Amazon Aurora',
+            r'AWS CloudFormation',
+            r'AWS CloudWatch',
+            r'Amazon CloudFront',
+            r'AWS IAM',
+            r'AWS Identity and Access Management',
+            r'Amazon VPC',
+            r'Amazon Virtual Private Cloud',
+            r'Amazon Route 53',
+            r'AWS Systems Manager',
+            r'Amazon SQS',
+            r'Amazon Simple Queue Service',
+            r'Amazon SNS',
+            r'Amazon Simple Notification Service',
+            r'AWS CodeBuild',
+            r'AWS CodePipeline',
+            r'AWS CodeDeploy',
+            r'Amazon EMR',
+            r'Amazon Elastic MapReduce',
+            r'Amazon Redshift',
+            r'Amazon Athena',
+            r'Amazon QuickSight',
+            r'AWS Glue',
+            r'Amazon Kinesis',
+            r'Amazon API Gateway',
+            r'AWS AppSync',
+            r'Amazon Cognito',
+            r'AWS Amplify',
+            r'Amazon SageMaker',
+            r'Amazon Comprehend',
+            r'Amazon Rekognition',
+            r'Amazon Textract',
+            r'Amazon Polly',
+            r'Amazon Lex',
+            r'AWS Elemental MediaLive',
+            r'AWS Elemental MediaConvert',
+            r'AWS Elemental MediaPackage',
+            r'AWS Elemental MediaStore',
+            r'AWS Elemental MediaTailor',
+            r'Amazon OpenSearch Service',
+            r'Amazon Elasticsearch Service',
+            r'AWS Lake Formation',
+            r'AWS Control Tower',
+            r'AWS Organizations',
+            r'AWS Direct Connect',
+            r'Amazon EventBridge',
+            r'Amazon CloudWatch Events',
+            r'AWS Secrets Manager',
+            r'AWS Key Management Service',
+            r'AWS KMS',
+            r'Amazon EFS',
+            r'Amazon Elastic File System',
+            r'Amazon FSx',
+            r'AWS Fargate',
+            r'Amazon ECR',
+            r'Amazon Elastic Container Registry',
+            r'AWS App Runner',
+            r'AWS Batch',
+            r'Amazon MQ',
+            r'Amazon MSK',
+            r'Amazon Managed Streaming for Apache Kafka',
+            r'AWS IoT Core',
+            r'Amazon Connect',
+            r'Amazon WorkSpaces',
+            r'Amazon AppStream',
+            r'AWS Shield',
+            r'AWS WAF',
+            r'AWS Backup',
+            r'AWS Snow Family',
+            r'AWS Snowball',
+            r'AWS Snowcone',
+            r'AWS Snowmobile',
+            r'Amazon Braket',
+            r'AWS Ground Station',
+            r'Amazon Timestream',
+            r'Amazon QLDB',
+            r'Amazon Managed Blockchain',
+            r'AWS Outposts',
+            r'AWS Wavelength',
+            r'AWS Local Zones'
         ]
+    
+    def extract_product_name(self, title):
+        """Extract AWS/Amazon product name from the title using known service names."""
+        # Try to find any known AWS service in the title
+        for pattern in self.service_patterns:
+            if pattern in title:
+                return pattern
+        
+        # If no exact match found, try to find AWS/Amazon followed by capitalized words
+        # This is a fallback for new or uncommon services
+        basic_patterns = [
+            r'\b(AWS\s+[A-Z][a-zA-Z0-9]+(?:\s+[A-Z][a-zA-Z0-9]+)*)',
+            r'\b(Amazon\s+[A-Z][a-zA-Z0-9]+(?:\s+[A-Z][a-zA-Z0-9]+)*)'
+        ]
+        
+        for pattern in basic_patterns:
+            match = re.search(pattern, title)
+            if match:
+                # Verify it's not just part of a longer phrase
+                product_name = match.group(1).strip()
+                # Only use if it's relatively short (likely a service name)
+                if len(product_name.split()) <= 4:
+                    return product_name
+        
+        return None
 
-    def clean_description(self, description: str) -> str:
-        """Clean HTML tags from description."""
+    def clean_description(self, description):
+        """Clean HTML from description and return plain text."""
         if not description:
             return ""
+        
         # Parse HTML and get text
         soup = BeautifulSoup(description, 'html.parser')
-        return soup.get_text().strip()
-
-    def extract_categories(self, title: str) -> List[str]:
-        """Extract AWS service categories from the update title."""
-        categories = []
+        text = soup.get_text(separator=' ', strip=True)
         
-        # Common AWS service patterns
-        patterns = [
-            r'Amazon ([\w\s]+)',
-            r'AWS ([\w\s]+)',
-            r'Amazon Web Services ([\w\s]+)'
-        ]
+        # Remove extra whitespace
+        text = re.sub(r'\s+', ' ', text)
         
-        for pattern in patterns:
-            matches = re.finditer(pattern, title)
-            for match in matches:
-                service = match.group(1).strip()
-                if service and service not in categories:
-                    categories.append(service)
-        
-        # Add the first word if no matches found (often the service name in AWS titles)
-        if not categories and title:
-            categories.append(title.split()[0])
-        
-        # Ensure we have at least one category
-        if not categories:
-            categories.append('General')
-        
-        return categories
-
-    def determine_update_types(self, title: str, description: str) -> List[str]:
-        """Determine the types of update based on title and description content."""
-        update_types = []
-        combined_text = f"{title} {description}".lower()
-        
-        # Check each pattern for matches
-        for pattern, update_type in self.update_patterns:
-            if re.search(pattern, combined_text, re.IGNORECASE):
-                update_types.append(update_type)
-        
-        # Ensure we have at least one update type
-        if not update_types:
-            update_types.append('Features')  # Default to Features if no specific type is found
-        
-        return update_types
+        return text.strip()
 
     def scrape(self) -> List[Update]:
         """Scrape AWS updates from RSS feed."""
@@ -118,38 +188,32 @@ class AWSScraper:
             updates = []
             for entry in feed.entries:
                 try:
-                    # Get description from content or summary
-                    description = ''
-                    if hasattr(entry, 'content'):
-                        description = entry.content[0].value
-                    elif hasattr(entry, 'summary'):
-                        description = entry.summary
-                    
-                    title = entry.get('title', 'No title')
+                    # Extract product name as category
+                    product_name = self.extract_product_name(entry.title)
+                    # Print for debugging
+                    print(f"\nProcessing: {entry.title}")
+                    print(f"Extracted product name: {product_name}")
+                    categories = [product_name] if product_name else []
                     
                     # Convert the time struct to datetime
                     if not hasattr(entry, 'published_parsed'):
-                        print(f"Warning: AWS entry missing published date: {title}")
+                        print(f"Warning: AWS entry missing published date: {entry.title}")
                         continue
                         
                     published_date = datetime.fromtimestamp(mktime(entry.published_parsed))
                     
                     # Clean description
-                    clean_description = self.clean_description(description)
-                    
-                    # Extract metadata
-                    categories = self.extract_categories(title)
-                    update_types = self.determine_update_types(title, clean_description)
+                    clean_description = self.clean_description(entry.description)
                     
                     # Create update object
                     update = Update(
                         provider='aws',
-                        title=title,
+                        title=entry.title,
                         description=clean_description,
                         url=entry.get('link', ''),
                         published_date=published_date,
                         categories=categories,
-                        update_types=update_types
+                        update_types=[]  # AWS doesn't have explicit update types
                     )
                     updates.append(update)
                 except Exception as entry_error:
