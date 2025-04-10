@@ -36,21 +36,22 @@ class AWSScraper:
 
     def extract_product_name(self, title):
         """Extract AWS product name by finding perfect matches with the services list."""
+        import re
         services = self._get_services()
         
-        # Sort services by length (descending) to match longer names first
-        # This ensures "Amazon RDS" is matched before "RDS"
-        services = sorted(services, key=len, reverse=True)
-        
+        # Try each service name
         for service in services:
-            # Check for exact case-sensitive match
-            if service in title:
+            # Create regex pattern with word boundaries
+            pattern = r'\b' + re.escape(service) + r'\b'
+            if re.search(pattern, title):
                 return service
             
-            # Also check for case-sensitive match at word boundaries
-            # This helps match "Amazon Lex" in "Amazon Lex adds..."
-            if re.search(r'\b' + re.escape(service) + r'\b', title):
-                return service
+            # Try without prefix if it starts with "Amazon" or "AWS"
+            if service.startswith(("Amazon ", "AWS ")):
+                short_name = service.split(" ", 1)[1]
+                pattern = r'\b' + re.escape(short_name) + r'\b'
+                if re.search(pattern, title):
+                    return service
         
         return None
 
@@ -91,11 +92,11 @@ class AWSScraper:
         if len(parts) == 2:
             main_text, timestamp = parts
             # Add AWS Product section before timestamp
-            product_section = f"\n\nAWS Product:\n• {product_name if product_name else 'Not found'}"
+            product_section = f"\n\nAWS Product:\n• {product_name if product_name else ''}"
             clean_text = f"{main_text.strip()}{product_section}\n\nPosted On:{timestamp.strip()}"
         else:
             # If no timestamp found, just append the product section
-            clean_text = f"{clean_text}\n\nAWS Product:\n• {product_name if product_name else 'Not found'}"
+            clean_text = f"{clean_text}\n\nAWS Product:\n• {product_name if product_name else ''}"
         
         return clean_text
 
