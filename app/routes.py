@@ -23,7 +23,7 @@ to ensure its accuracy and functionality, users should:
 """
 
 from datetime import datetime, timedelta
-from flask import render_template, redirect, url_for, flash
+from flask import render_template, redirect, url_for, flash, request, jsonify
 from sqlalchemy import func, desc
 from app.models import Update, WeeklyInsight
 from app.scraper.aws_scraper import AWSScraper
@@ -35,21 +35,58 @@ def init_routes(app):
     def inject_now():
         return {'now': datetime.utcnow()}
 
+    @app.context_processor
+    def utility_processor():
+        return {
+            'min': min,
+            'max': max
+        }
+
     @app.route('/')
     def index():
         return render_template('index.html')
 
     @app.route('/aws')
     def aws_updates():
-        aws_updates = Update.query.filter_by(provider='aws').order_by(Update.published_date.desc()).limit(20).all()
-        return render_template('aws.html', aws_updates=aws_updates)
+        page = request.args.get('page', 1, type=int)
+        per_page = 10  # Number of updates per page
+        
+        # Get paginated updates
+        pagination = Update.query.filter_by(provider='aws').order_by(
+            Update.published_date.desc()
+        ).paginate(page=page, per_page=per_page, error_out=False)
+        
+        aws_updates = pagination.items
+        
+        # Get unique categories and update types for filtering
+        aws_categories = set()
+        aws_update_types = set()
+        
+        for update in aws_updates:
+            if update.categories:
+                aws_categories.update(update.categories)
+            if update.update_types:
+                aws_update_types.update(update.update_types)
+        
+        return render_template('aws.html', 
+                             aws_updates=aws_updates,
+                             aws_categories=sorted(aws_categories),
+                             aws_update_types=sorted(aws_update_types),
+                             pagination=pagination)
 
     @app.route('/azure')
     def azure_updates():
-        # Get all Azure updates
-        azure_updates = Update.query.filter_by(provider='azure').order_by(Update.published_date.desc()).all()
+        page = request.args.get('page', 1, type=int)
+        per_page = 10  # Number of updates per page
         
-        # Extract unique categories and update types
+        # Get paginated updates
+        pagination = Update.query.filter_by(provider='azure').order_by(
+            Update.published_date.desc()
+        ).paginate(page=page, per_page=per_page, error_out=False)
+        
+        azure_updates = pagination.items
+        
+        # Get unique categories and update types for filtering
         azure_categories = set()
         azure_update_types = set()
         
@@ -59,14 +96,11 @@ def init_routes(app):
             if update.update_types:
                 azure_update_types.update(update.update_types)
         
-        # Convert to sorted lists
-        azure_categories = sorted(azure_categories)
-        azure_update_types = sorted(azure_update_types)
-        
-        return render_template('azure.html',
-                            azure_updates=azure_updates[:20],  # Limit to 20 updates initially
-                            azure_categories=azure_categories,
-                            azure_update_types=azure_update_types)
+        return render_template('azure.html', 
+                             azure_updates=azure_updates,
+                             azure_categories=sorted(azure_categories),
+                             azure_update_types=sorted(azure_update_types),
+                             pagination=pagination)
 
     @app.route('/insights')
     def insights():
