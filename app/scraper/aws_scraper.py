@@ -34,91 +34,70 @@ class AWSScraper:
             self._services = self._services_fetcher.get_services()
         return self._services
 
-    def _clean_word(self, word):
-        """Clean a word by removing punctuation and converting to lowercase."""
-        return ''.join(c.lower() for c in word if c.isalnum())
-
-    def _is_word_match(self, word, text):
-        """Check if word appears as a complete word in text."""
-        # Split into words and clean each word
-        word_parts = [self._clean_word(w) for w in word.split()]
-        text_parts = [self._clean_word(w) for w in text.split()]
-        
-        # For multi-word phrases, check if all words appear in sequence
-        if len(word_parts) > 1:
-            # Try to find the sequence starting at each word
-            for i in range(len(text_parts)):
-                if text_parts[i] == word_parts[0]:
-                    # Check if remaining words follow in sequence
-                    match = True
-                    for j in range(1, len(word_parts)):
-                        if i + j >= len(text_parts) or text_parts[i + j] != word_parts[j]:
-                            match = False
-                            break
-                    if match:
-                        print(f"Found sequence match: {word}")
-                        return True
-            return False
-        
-        # For single words, check if they appear as complete words
-        word = word_parts[0]
-        text = ' '.join(text_parts)
-        text = f" {text} "
-        return f" {word} " in text
-
     def extract_product_name(self, title):
-        """
-        Extract AWS product name from update title by:
-        1. Try exact matches with full service names
-        2. Try matches with base names (without AWS/Amazon prefix)
-        """
-        print(f"\nProcessing title: {title}")
-        
-        # Get services list from cache/docs
+        """Extract AWS product name by finding perfect matches with the services list."""
         services = self._get_services()
         
-        # Sort services by length (descending) to prioritize longer matches
+        # Sort services by length (descending) to match longer names first
+        # This ensures "Amazon RDS" is matched before "RDS"
         services = sorted(services, key=len, reverse=True)
         
-        # First try exact matches with full service names
-        print("\nTrying exact matches:")
-        matches = []
         for service in services:
-            if self._is_word_match(service, title):
-                matches.append(service)
-                print(f"Found exact match: {service}")
+            # Check for exact case-sensitive match
+            if service in title:
+                return service
+            
+            # Also check for case-sensitive match at word boundaries
+            # This helps match "Amazon Lex" in "Amazon Lex adds..."
+            if re.search(r'\b' + re.escape(service) + r'\b', title):
+                return service
         
-        if matches:
-            # Return the longest match
-            longest_match = max(matches, key=len)
-            print(f"Selected longest match: {longest_match}")
-            return longest_match
-        
-        # Then try matches with base names (without AWS/Amazon prefix)
-        print("\nTrying base name matches:")
-        matches = []
-        for service in services:
-            base_name = service.replace('AWS ', '').replace('Amazon ', '')
-            if len(base_name) <= 3:  # Skip short names to avoid false matches
-                continue
-                
-            if self._is_word_match(base_name, title):
-                matches.append(service)
-                print(f"Found base name match: {service}")
-        
-        if matches:
-            # Return the longest match
-            longest_match = max(matches, key=len)
-            print(f"Selected longest match: {longest_match}")
-            return longest_match
-        
-        print("No product name found")
         return None
 
-    def clean_description(self, description):
-        """Clean the HTML description."""
-        # For now, just return the raw description
-        return description
+    def clean_description(self, description, product_name=None):
+        """Clean the HTML description and add AWS Product section."""
+        # First convert HTML entities
+        clean_text = description
+        clean_text = clean_text.replace('&nbsp;', ' ')
+        clean_text = clean_text.replace('&amp;', '&')
+        clean_text = clean_text.replace('&lt;', '<')
+        clean_text = clean_text.replace('&gt;', '>')
+        clean_text = clean_text.replace('&quot;', '"')
+        clean_text = clean_text.replace('&#39;', "'")
+        clean_text = clean_text.replace('&#8217;', "'")
+        clean_text = clean_text.replace('&#8220;', '"')
+        clean_text = clean_text.replace('&#8221;', '"')
+        clean_text = clean_text.replace('&#8211;', "-")
+        clean_text = clean_text.replace('&#8230;', "...")
+        
+        # Remove HTML tags
+        clean_text = re.sub(r'<a[^>]*>', '', clean_text)  # Remove opening <a> tags
+        clean_text = re.sub(r'</a>', '', clean_text)      # Remove closing </a> tags
+        clean_text = re.sub(r'<p[^>]*>', '', clean_text)  # Remove opening <p> tags
+        clean_text = re.sub(r'</p>', '\n\n', clean_text)  # Replace closing </p> with newlines
+        clean_text = re.sub(r'<br[^>]*>', '\n', clean_text)  # Replace <br> with newline
+        clean_text = re.sub(r'<[^>]+>', '', clean_text)   # Remove any remaining tags
+        
+        # Fix common issues
+        clean_text = re.sub(r'\s+', ' ', clean_text)      # Replace multiple spaces with single space
+        clean_text = re.sub(r'\s*\.\s*\.\s*\.', '...', clean_text)  # Fix ellipsis
+        clean_text = re.sub(r'\s*-\s*', '-', clean_text)  # Fix dashes
+        clean_text = clean_text.strip()
+        
+        # Split description into parts by looking for the timestamp pattern
+        timestamp_pattern = r'\n*Posted On: [A-Za-z]+ \d+, \d{4}'
+        parts = re.split(timestamp_pattern, clean_text, maxsplit=1)
+        
+        if len(parts) == 2:
+            main_text, timestamp = parts
+            # Add AWS Product section before timestamp
+            product_section = f"\n\nAWS Product:\n• {product_name if product_name else 'Not found'}"
+            clean_text = f"{main_text.strip()}{product_section}\n\nPosted On:{timestamp.strip()}"
+        else:
+            # If no timestamp found, just append the product section
+            clean_text = f"{clean_text}\n\nAWS Product:\n• {product_name if product_name else 'Not found'}"
+        
+        return clean_text
 
     def scrape(self):
         """Scrape AWS updates from RSS feed."""
@@ -144,8 +123,8 @@ class AWSScraper:
                     # Parse date using email.utils for RFC822 format
                     published_date = parsedate_to_datetime(entry.published)
                     
-                    # Clean description
-                    clean_description = self.clean_description(entry.description)
+                    # Clean description and add AWS Product section if available
+                    clean_description = self.clean_description(entry.description, product_name)
                     
                     # Create update object
                     update = {

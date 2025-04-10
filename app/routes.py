@@ -28,6 +28,7 @@ from sqlalchemy import func, desc
 from app.models import Update, WeeklyInsight
 from app.scraper.aws_scraper import AWSScraper
 from app.scraper.azure_scraper import AzureScraper
+from app.scraper.aws_services import AWSServicesFetcher
 from app import db
 
 def init_routes(app):
@@ -58,6 +59,12 @@ def init_routes(app):
         
         aws_updates = pagination.items
         
+        # Get unique product names for filtering
+        aws_products = set()
+        for update in Update.query.filter_by(provider='aws').all():
+            if update.product_name:
+                aws_products.add(update.product_name)
+        
         # Get unique categories and update types for filtering
         aws_categories = set()
         aws_update_types = set()
@@ -70,6 +77,7 @@ def init_routes(app):
         
         return render_template('aws.html', 
                              aws_updates=aws_updates,
+                             aws_products=sorted(aws_products),
                              aws_categories=sorted(aws_categories),
                              aws_update_types=sorted(aws_update_types),
                              pagination=pagination)
@@ -198,12 +206,22 @@ def init_routes(app):
                 # Check if update already exists
                 existing_update = Update.query.filter_by(
                     provider='aws',
-                    title=update.title,
-                    published_date=update.published_date
+                    title=update['title'],
+                    published_date=update['published_date']
                 ).first()
                 
                 if not existing_update:
-                    db.session.add(update)
+                    new_update = Update(
+                        provider=update['provider'],
+                        title=update['title'],
+                        description=update['description'],
+                        url=update['url'],
+                        published_date=update['published_date'],
+                        categories=update['categories'],
+                        product_name=update['product_name'],
+                        update_types=update['update_types']
+                    )
+                    db.session.add(new_update)
 
             # Azure Updates
             azure_scraper = AzureScraper()
@@ -225,6 +243,16 @@ def init_routes(app):
             db.session.rollback()
             flash(f'Error saving update: {str(e)}', 'error')
 
+        return redirect(url_for('admin'))
+
+    @app.route('/admin/update_aws_products', methods=['POST'])
+    def admin_update_aws_products():
+        try:
+            aws_services_fetcher = AWSServicesFetcher()
+            services = aws_services_fetcher.get_services(refresh=True)
+            flash(f'Successfully updated AWS products list! Found {len(services)} products.', 'success')
+        except Exception as e:
+            flash(f'Error updating AWS products list: {str(e)}', 'error')
         return redirect(url_for('admin'))
 
     @app.route('/debug')

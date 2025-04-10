@@ -36,6 +36,7 @@ class Update(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     _categories = db.Column('categories', db.Text, default='[]')  # JSON array of categories
     _update_types = db.Column('update_types', db.Text, default='[]')  # JSON array of update types
+    product_name = db.Column(db.String(100))  # Name of the AWS/Azure product
     
     __table_args__ = (
         db.UniqueConstraint('provider', 'title', 'published_date', name='unique_update'),

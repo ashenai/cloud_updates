@@ -23,25 +23,33 @@ class AWSServicesFetcher:
             
             services = set()
             
+            # Common words to exclude (not product names)
+            exclude_words = {
+                'documentation', 'guide', 'sdk', 'tools', 'overview',
+                'getting started', 'learn', 'resources', 'developer', 'developers',
+                'sign in', 'sign out', 'home', 'index', 'console',
+                'support', 'partner', 'training', 'careers', 'marketplace',
+                'privacy', 'terms', 'contact', 'help', 'blog', 'press',
+                'legal', 'cookie', 'preference', 'account', 'profile',
+                'billing', 'cost', 'pricing', 'free', 'trial', 'login',
+                'logout', 'language', 'español', 'português', 'deutsch',
+                'français', 'italiano', 'about', 'what is', 'solutions',
+                'events', 'news', 'mobile', 'download', 'close', 'skip',
+                'expert', 'success', 'enable', 'create', 'got it',
+                'türkçe', 'bahasa', 'english', 'on aws', 'what\'s new',
+                'products', 'product', 'faqs', 'faq', 'technical',
+                'credentials', 'security', 'services', 'service',
+                'features', 'feature', 'benefits', 'benefit',
+                'docs', 'documentation', 'reference', 'examples',
+                'tutorials', 'tutorial', 'guides', 'resources'
+            }
+            
             # Find all service headings and links
             for element in soup.find_all(['h2', 'h3', 'a']):
                 text = element.get_text().strip()
                 
                 # Skip empty or non-service text
-                if not text or any(skip in text.lower() for skip in [
-                    'documentation', 'guide', 'sdk', 'tools', 'overview',
-                    'getting started', 'learn', 'resources', 'developer',
-                    'sign in', 'sign out', 'home', 'index', 'console',
-                    'support', 'partner', 'training', 'careers', 'marketplace',
-                    'privacy', 'terms', 'contact', 'help', 'blog', 'press',
-                    'legal', 'cookie', 'preference', 'account', 'profile',
-                    'billing', 'cost', 'pricing', 'free', 'trial', 'login',
-                    'logout', 'language', 'español', 'português', 'deutsch',
-                    'français', 'italiano', 'about', 'what is', 'solutions',
-                    'events', 'news', 'mobile', 'download', 'close', 'skip',
-                    'expert', 'success', 'enable', 'create', 'got it',
-                    'türkçe', 'bahasa', 'english', 'on aws', 'what\'s new'
-                ]):
+                if not text or text.lower() in exclude_words or any(skip in text.lower() for skip in exclude_words):
                     continue
                 
                 # Skip if text contains parentheses or special characters
