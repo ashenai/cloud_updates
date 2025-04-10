@@ -5,8 +5,22 @@ AWS Updates Scraper
 import feedparser
 from datetime import datetime
 import re
-from .aws_services import AWSServicesFetcher
 from email.utils import parsedate_to_datetime
+import sys
+import json
+import os
+
+# Add the current directory to Python path
+current_dir = os.path.dirname(os.path.abspath(__file__))
+if current_dir not in sys.path:
+    sys.path.append(current_dir)
+
+from aws_services import AWSServicesFetcher
+
+# Set stdout to use UTF-8 encoding
+if sys.stdout.encoding != 'utf-8':
+    import codecs
+    sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer, 'strict')
 
 class AWSScraper:
     def __init__(self):
@@ -20,131 +34,83 @@ class AWSScraper:
             self._services = self._services_fetcher.get_services()
         return self._services
 
+    def _clean_word(self, word):
+        """Clean a word by removing punctuation and converting to lowercase."""
+        return ''.join(c.lower() for c in word if c.isalnum())
+
+    def _is_word_match(self, word, text):
+        """Check if word appears as a complete word in text."""
+        # Split into words and clean each word
+        word_parts = [self._clean_word(w) for w in word.split()]
+        text_parts = [self._clean_word(w) for w in text.split()]
+        
+        # For multi-word phrases, check if all words appear in sequence
+        if len(word_parts) > 1:
+            # Try to find the sequence starting at each word
+            for i in range(len(text_parts)):
+                if text_parts[i] == word_parts[0]:
+                    # Check if remaining words follow in sequence
+                    match = True
+                    for j in range(1, len(word_parts)):
+                        if i + j >= len(text_parts) or text_parts[i + j] != word_parts[j]:
+                            match = False
+                            break
+                    if match:
+                        print(f"Found sequence match: {word}")
+                        return True
+            return False
+        
+        # For single words, check if they appear as complete words
+        word = word_parts[0]
+        text = ' '.join(text_parts)
+        text = f" {text} "
+        return f" {word} " in text
+
     def extract_product_name(self, title):
         """
-        Extract AWS product name from update title by trying four matching patterns:
-        1. Full service name (e.g. "Amazon DynamoDB")
-        2. AWS prefix + name (e.g. "AWS <name>")
-        3. Amazon prefix + name (e.g. "Amazon <name>")
-        4. Name only (e.g. "DynamoDB")
+        Extract AWS product name from update title by:
+        1. Try exact matches with full service names
+        2. Try matches with base names (without AWS/Amazon prefix)
         """
         print(f"\nProcessing title: {title}")
         
-        # Get our services list and prepare title
+        # Get services list from cache/docs
         services = self._get_services()
-        title_lower = title.lower()
         
-        # Special cases for services that might appear differently
-        special_cases = {
-            'Well-Architected Tool': 'AWS Well-Architected Tool',
-            'DynamoDB': 'Amazon DynamoDB',
-            'S3 Tables': 'Amazon S3',
-            'Cost Optimization Hub': 'AWS Cost Optimization Hub',
-            'Resource Access Manager': 'AWS Resource Access Manager',
-            'PartyRock': 'Amazon PartyRock',
-            'OpenSearch UI': 'Amazon OpenSearch Service',
-            'MSK': 'Amazon MSK',
-            'API Gateway': 'Amazon API Gateway',
-            'IoT': 'AWS IoT',
-            'Marketplace': 'AWS Marketplace',
-            'End User Messaging': 'AWS End User Computing',
-            'EKS': 'Amazon EKS',
-            'ECS': 'Amazon ECS',
-            'EC2': 'Amazon EC2',
-            'RDS': 'Amazon RDS',
-            'Lambda': 'AWS Lambda',
-            'CloudFront': 'Amazon CloudFront',
-            'Route 53': 'Amazon Route 53',
-            'VPC': 'Amazon VPC',
-            'IAM': 'AWS IAM',
-            'CloudWatch': 'Amazon CloudWatch',
-            'CloudFormation': 'AWS CloudFormation',
-            'SQS': 'Amazon SQS',
-            'SNS': 'Amazon SNS',
-            'SES': 'Amazon SES',
-            'Q Developer': 'Amazon Q',
-            'Amazon Q': 'Amazon Q',  # Only match exact "Amazon Q"
-            'MQ': 'Amazon MQ',
-            'OpenSearch Ingestion': 'Amazon OpenSearch Service',
-            'Nova Canvas': 'Amazon Bedrock',
-            'Nova Sonic': 'Amazon Bedrock',
-            'Aurora PostgreSQL': 'Amazon Aurora',  # Handle Aurora PostgreSQL variant
-            'Aurora Postgres': 'Amazon Aurora',    # Handle another common variant
-            'Well-Architected': 'AWS Well-Architected Tool',  # Match partial name
-            'Well Architected': 'AWS Well-Architected Tool'   # Handle without hyphen
-        }
+        # Sort services by length (descending) to prioritize longer matches
+        services = sorted(services, key=len, reverse=True)
         
-        # Check special cases first
-        for pattern, service_name in special_cases.items():
-            if pattern.lower() in title_lower:
-                print(f"Found special case match: {service_name}")
-                return service_name
-        
-        # Try to find the longest matching service name
-        max_length = 0
-        matched_service = None
-        
+        # First try exact matches with full service names
+        print("\nTrying exact matches:")
+        matches = []
         for service in services:
-            service_lower = service.lower()
-            service_name = service.replace('AWS ', '').replace('Amazon ', '')
-            service_name_lower = service_name.lower()
-            
-            # Skip if service name is too short (likely an abbreviation)
-            if len(service_name) <= 3:
-                continue
-            
-            # Skip if service name is too generic
-            if service_name_lower in {'products', 'services', 'developer', 'tools'}:
-                continue
-            
-            # Try full service name match first (highest priority)
-            if service_lower in title_lower:
-                length = len(service_lower)
-                if length > max_length:
-                    max_length = length
-                    matched_service = service
-                    continue
-            
-            # Try AWS prefix + name
-            aws_pattern = f"aws {service_name_lower}"
-            if aws_pattern in title_lower:
-                length = len(aws_pattern)
-                if length > max_length:
-                    max_length = length
-                    matched_service = f"AWS {service_name}"
-                    continue
-            
-            # Try Amazon prefix + name
-            amazon_pattern = f"amazon {service_name_lower}"
-            if amazon_pattern in title_lower:
-                length = len(amazon_pattern)
-                if length > max_length:
-                    max_length = length
-                    matched_service = f"Amazon {service_name}"
-                    continue
-            
-            # Try name only for longer names (to avoid false positives)
-            # First try the full service name without requiring prefix match
-            if len(service_name) > 3:
-                # Remove AWS/Amazon prefix if present
-                clean_service = service.replace('AWS ', '').replace('Amazon ', '')
-                if clean_service.lower() in title_lower:
-                    length = len(clean_service)
-                    if length > max_length:
-                        max_length = length
-                        matched_service = service  # Use original service name with prefix
-                        continue
-                
-                # Then try the service name part
-                if service_name_lower in title_lower:
-                    length = len(service_name_lower)
-                    if length > max_length:
-                        max_length = length
-                        matched_service = service  # Use original service name with prefix
+            if self._is_word_match(service, title):
+                matches.append(service)
+                print(f"Found exact match: {service}")
         
-        if matched_service:
-            print(f"Found service match: {matched_service}")
-            return matched_service
+        if matches:
+            # Return the longest match
+            longest_match = max(matches, key=len)
+            print(f"Selected longest match: {longest_match}")
+            return longest_match
+        
+        # Then try matches with base names (without AWS/Amazon prefix)
+        print("\nTrying base name matches:")
+        matches = []
+        for service in services:
+            base_name = service.replace('AWS ', '').replace('Amazon ', '')
+            if len(base_name) <= 3:  # Skip short names to avoid false matches
+                continue
+                
+            if self._is_word_match(base_name, title):
+                matches.append(service)
+                print(f"Found base name match: {service}")
+        
+        if matches:
+            # Return the longest match
+            longest_match = max(matches, key=len)
+            print(f"Selected longest match: {longest_match}")
+            return longest_match
         
         print("No product name found")
         return None
@@ -204,13 +170,21 @@ class AWSScraper:
             print(f"Error scraping AWS updates: {e}")
             return []
 
-# Example usage
+    def test_title(self):
+        """Test method to check product extraction"""
+        test_titles = [
+            "Announcing pgvector 0.8.0 support in Aurora PostgreSQL",
+            "Cost Optimization Hub supports DynamoDB and MemoryDB reservation recommendations",
+            "New Guidance in the Well-Architected Tool"
+        ]
+        
+        for title in test_titles:
+            print(f"\nTesting title: {title}")
+            product = self.extract_product_name(title)
+            print(f"Found product: {product}")
+        
+        return product
+
 if __name__ == "__main__":
     scraper = AWSScraper()
-    updates = scraper.scrape()
-    for update in updates:
-        print(f"\nTitle: {update['title']}")
-        print(f"Product: {update['product_name']}")
-        print(f"Date: {update['published_date']}")
-        print(f"Link: {update['url']}")
-        print("-" * 80)
+    scraper.test_title()
