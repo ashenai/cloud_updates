@@ -324,45 +324,58 @@ def init_routes(app):
     @app.route('/admin/generate_insights', methods=['POST'])
     def admin_generate_insights():
         try:
-            # Generate weekly insights
-            # Start from 4 weeks ago
-            today = datetime.utcnow()
-            start_of_current_week = today - timedelta(days=today.weekday())
-            start_of_current_week = start_of_current_week.replace(hour=0, minute=0, second=0, microsecond=0)
+            # Clear existing insights
+            WeeklyInsight.query.delete()
             
-            for i in range(4):  # Last 4 weeks
-                week_start = start_of_current_week - timedelta(weeks=i)
-                week_end = week_start + timedelta(days=7)
-                
-                # Check if insight already exists for this week
-                existing_insight = WeeklyInsight.query.filter_by(week_start=week_start).first()
-                if existing_insight:
-                    continue
+            # Find the earliest and latest update dates
+            earliest_update = Update.query.order_by(Update.published_date.asc()).first()
+            latest_update = Update.query.order_by(Update.published_date.desc()).first()
+            
+            if not earliest_update or not latest_update:
+                flash('No updates found to generate insights from.', 'error')
+                return redirect(url_for('admin'))
+            
+            # Start from the beginning of the week of the earliest update
+            start_date = earliest_update.published_date - timedelta(days=earliest_update.published_date.weekday())
+            start_date = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
+            
+            # End at the end of the current week
+            end_date = datetime.utcnow()
+            end_date = end_date - timedelta(days=end_date.weekday()) + timedelta(days=7)
+            end_date = end_date.replace(hour=0, minute=0, second=0, microsecond=0)
+            
+            # Generate insights for each week
+            current_week = start_date
+            while current_week < end_date:
+                week_end = current_week + timedelta(days=7)
                 
                 # Count updates for this week
                 aws_count = Update.query.filter(
                     Update.provider == 'aws',
-                    Update.published_date >= week_start,
+                    Update.published_date >= current_week,
                     Update.published_date < week_end
                 ).count()
                 
                 azure_count = Update.query.filter(
                     Update.provider == 'azure',
-                    Update.published_date >= week_start,
+                    Update.published_date >= current_week,
                     Update.published_date < week_end
                 ).count()
                 
-                # Create new insight
-                insight = WeeklyInsight(
-                    week_start=week_start,
-                    week_end=week_end,
-                    aws_updates=aws_count,
-                    azure_updates=azure_count
-                )
-                db.session.add(insight)
+                # Only create insight if there are updates
+                if aws_count > 0 or azure_count > 0:
+                    insight = WeeklyInsight(
+                        week_start=current_week,
+                        week_end=week_end,
+                        aws_updates=aws_count,
+                        azure_updates=azure_count
+                    )
+                    db.session.add(insight)
+                
+                current_week = week_end
             
             db.session.commit()
-            flash('Weekly insights have been generated.', 'success')
+            flash('Weekly insights have been regenerated for all data.', 'success')
         except Exception as e:
             db.session.rollback()
             flash(f'Error generating insights: {str(e)}', 'error')
