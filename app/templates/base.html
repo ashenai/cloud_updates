@@ -68,6 +68,11 @@
                         <a class="nav-link{% if request.endpoint == 'azure_updates' %} active{% endif %}" href="{{ url_for('azure_updates') }}">Azure</a>
                     </li>
                     <li class="nav-item">
+                        <a class="nav-link{% if request.endpoint == 'search' %} active{% endif %}" href="{{ url_for('search') }}">
+                            <i class="bi bi-search"></i> Search
+                        </a>
+                    </li>
+                    <li class="nav-item">
                         <a class="nav-link{% if request.endpoint == 'insights' %} active{% endif %}" href="{{ url_for('insights') }}">Insights</a>
                     </li>
                     <li class="nav-item">

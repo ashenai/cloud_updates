@@ -22,39 +22,50 @@ to ensure its accuracy and functionality, users should:
 4. Not rely on this code for critical systems without proper validation
 """
 
+"""
+Flask application factory.
+"""
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime
+from flask_migrate import Migrate
 import os
+from datetime import datetime
 
-# Initialize SQLAlchemy
+# Initialize extensions
 db = SQLAlchemy()
+migrate = Migrate()
 
 def create_app():
-    app = Flask(__name__, template_folder='templates')
+    app = Flask(__name__)
+    
+    # Get the base directory
+    base_dir = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
     
     # Configuration
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///cloud_updates.db'
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(base_dir, 'instance', 'cloud_updates.db')
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-    
-    # Set a secure secret key for sessions
-    app.config['SECRET_KEY'] = os.environ.get('FLASK_SECRET_KEY', 'dev-secret-key-change-in-production')
+    app.config['SECRET_KEY'] = 'dev-key-please-change-in-production'
+    app.config['UPDATES_PER_PAGE'] = 20
+    app.config['MAX_SEARCH_RESULTS'] = 100
+    app.config['UPDATE_RETENTION_DAYS'] = 90
     
     # Initialize extensions
     db.init_app(app)
+    migrate.init_app(app, db)
     
+    # Import routes here to avoid circular imports
+    from app.routes import init_routes
+    init_routes(app)
+    
+    # Create database tables
     with app.app_context():
-        # Import routes here to avoid circular imports
-        from . import routes
-        
-        # Initialize routes
-        routes.init_routes(app)
-        
-        # Create tables only if they don't exist
         db.create_all()
-        
         # Print message only on first creation
-        if not os.path.exists(os.path.join(os.path.dirname(app.instance_path), 'instance/cloud_updates.db')):
+        if not os.path.exists(os.path.join(base_dir, 'instance', 'cloud_updates.db')):
             print("Database tables created successfully!")
+    
+    # Register CLI commands
+    from app.cli import clean_cli
+    app.cli.add_command(clean_cli)
     
     return app

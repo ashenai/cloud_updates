@@ -29,6 +29,7 @@ from bs4 import BeautifulSoup
 import re
 from app.models import Update
 from time import mktime
+from email.utils import parsedate_to_datetime
 
 class AzureScraper:
     def __init__(self):
@@ -89,6 +90,28 @@ class AzureScraper:
         
         return categories, update_types
 
+    def get_update_date(self, entry, title: str) -> datetime:
+        """
+        Get the most recent update date from the entry.
+        Prefers a10:updated if available, falls back to pubDate.
+        Returns None if no valid date found.
+        """
+        # First try to get the a10:updated date
+        try:
+            if hasattr(entry, 'updated'):
+                return parsedate_to_datetime(entry.updated)
+        except Exception as e:
+            print(f"Warning: Could not parse updated date for {title}: {e}")
+        
+        # Fall back to pubDate
+        try:
+            if hasattr(entry, 'pubDate'):
+                return parsedate_to_datetime(entry.pubDate)
+        except Exception as e:
+            print(f"Warning: Could not parse pubDate for {title}: {e}")
+        
+        return None
+
     def scrape(self) -> List[Update]:
         """Scrape Azure updates from RSS feed."""
         try:
@@ -117,12 +140,11 @@ class AzureScraper:
                     
                     title = entry.get('title', 'No title')
                     
-                    # Convert the time struct to datetime
-                    if not hasattr(entry, 'published_parsed'):
-                        print(f"Warning: Azure entry missing published date: {title}")
+                    # Get the most recent update date
+                    published_date = self.get_update_date(entry, title)
+                    if published_date is None:
+                        print(f"Warning: No valid date found for Azure entry: {title}")
                         continue
-                        
-                    published_date = datetime.fromtimestamp(mktime(entry.published_parsed))
                     
                     # Extract metadata
                     categories, update_types = self.extract_metadata(entry)

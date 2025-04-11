@@ -23,19 +23,28 @@ to ensure its accuracy and functionality, users should:
 """
 
 from datetime import datetime, timedelta
-from flask import render_template, redirect, url_for, flash, request, jsonify
+from flask import render_template, redirect, url_for, flash, request, jsonify, current_app
 from sqlalchemy import func, desc, or_
 from app.models import Update, WeeklyInsight
 from app.scraper.aws_scraper import AWSScraper
 from app.scraper.azure_scraper import AzureScraper
 from app.scraper.aws_services import AWSServicesFetcher
+from app.rag.embeddings import UpdateSearch
 from app import db
+
+# Initialize search system
+update_search = UpdateSearch()
 
 def get_update_counts():
     """Get the total counts of AWS and Azure updates."""
     aws_count = Update.query.filter_by(provider='aws').count()
     azure_count = Update.query.filter_by(provider='azure').count()
     return aws_count, azure_count
+
+def rebuild_search_index():
+    """Rebuild the search index with all updates."""
+    updates = Update.query.all()
+    update_search.build_index(updates)
 
 def init_routes(app):
     @app.context_processor
@@ -421,6 +430,45 @@ def init_routes(app):
         except Exception as e:
             db.session.rollback()
             flash(f'Error cleaning up duplicates: {str(e)}', 'error')
+        
+        return redirect(url_for('admin'))
+
+    @app.route('/search')
+    def search():
+        query = request.args.get('q', '')
+        if not query:
+            return render_template('search.html')
+        
+        # Ensure index is built
+        if not update_search.updates:
+            updates = Update.query.all()
+            update_search.build_index(updates)
+        
+        # Perform semantic search
+        results = update_search.search(query, k=10)
+        
+        # Log search metrics
+        current_app.logger.info(f"Search query: '{query}' returned {len(results)} results")
+        if results:
+            current_app.logger.info(f"Top result score: {results[0]['score']:.2f}")
+        
+        return render_template('search.html', query=query, results=results)
+
+    @app.route('/admin/rebuild_search')
+    def admin_rebuild_search():
+        try:
+            # Get all updates
+            updates = Update.query.all()
+            
+            # Rebuild the search index
+            update_search.build_index(updates)
+            
+            # Log success
+            current_app.logger.info(f"Successfully rebuilt search index with {len(updates)} updates")
+            flash('Successfully rebuilt the search index!', 'success')
+        except Exception as e:
+            current_app.logger.error(f"Error rebuilding search index: {str(e)}")
+            flash(f'Error rebuilding search index: {str(e)}', 'error')
         
         return redirect(url_for('admin'))
 
