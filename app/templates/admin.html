@@ -10,7 +10,12 @@
             <form action="{{ url_for('admin_refresh') }}" method="post" class="d-inline">
                 <button type="submit" class="btn btn-primary me-2">Fetch New Updates</button>
             </form>
-            <a href="{{ url_for('admin') }}" class="btn btn-outline-secondary">Generate Insights</a>
+            <form action="{{ url_for('admin_generate_insights') }}" method="post" class="d-inline">
+                <button type="submit" class="btn btn-outline-secondary me-2">Generate Insights</button>
+            </form>
+            <form action="{{ url_for('admin_cleanup') }}" method="post" class="d-inline">
+                <button type="submit" class="btn btn-outline-danger">Clean Duplicates</button>
+            </form>
         </div>
     </div>
 
@@ -34,7 +39,7 @@
                         <h5 class="card-title mb-0">AWS Updates</h5>
                         <span class="badge provider-badge aws-badge">AWS</span>
                     </div>
-                    <p class="card-text">Total Updates: {{ aws_count }}</p>
+                    <p class="card-text">Total Updates: {{ total_aws }}</p>
                     {% if latest_aws %}
                     <p class="card-text">
                         Latest Update: <br>
@@ -54,7 +59,7 @@
                         <h5 class="card-title mb-0">Azure Updates</h5>
                         <span class="badge provider-badge azure-badge">Azure</span>
                     </div>
-                    <p class="card-text">Total Updates: {{ azure_count }}</p>
+                    <p class="card-text">Total Updates: {{ total_azure }}</p>
                     {% if latest_azure %}
                     <p class="card-text">
                         Latest Update: <br>

@@ -31,6 +31,12 @@ from app.scraper.azure_scraper import AzureScraper
 from app.scraper.aws_services import AWSServicesFetcher
 from app import db
 
+def get_update_counts():
+    """Get the total counts of AWS and Azure updates."""
+    aws_count = Update.query.filter_by(provider='aws').count()
+    azure_count = Update.query.filter_by(provider='azure').count()
+    return aws_count, azure_count
+
 def init_routes(app):
     @app.context_processor
     def inject_now():
@@ -180,6 +186,9 @@ def init_routes(app):
             ]
         }
         
+        # Get current update counts
+        total_aws, total_azure = get_update_counts()
+        
         # Get Azure category distribution
         azure_updates = Update.query.filter_by(provider='azure').all()
         azure_categories = {}
@@ -237,77 +246,126 @@ def init_routes(app):
         }
         
         return render_template('insights.html', 
-                             insights=insights,
-                             trend_chart_data=trend_chart_data,
-                             azure_chart_data=azure_chart_data,
-                             aws_chart_data=aws_chart_data)
+                            insights=insights,
+                            trend_chart_data=trend_chart_data,
+                            azure_chart_data=azure_chart_data,
+                            aws_chart_data=aws_chart_data,
+                            total_aws=total_aws,
+                            total_azure=total_azure)
 
     @app.route('/admin')
     def admin():
-        # Generate weekly insights
-        # Start from 4 weeks ago
-        today = datetime.utcnow()
-        start_of_current_week = today - timedelta(days=today.weekday())
-        start_of_current_week = start_of_current_week.replace(hour=0, minute=0, second=0, microsecond=0)
+        # Get stats for display
+        total_aws, total_azure = get_update_counts()
         
-        for i in range(4):  # Last 4 weeks
-            week_start = start_of_current_week - timedelta(weeks=i)
-            week_end = week_start + timedelta(days=7)
-            
-            # Check if insight already exists for this week
-            existing_insight = WeeklyInsight.query.filter_by(week_start=week_start).first()
-            if existing_insight:
-                continue
-            
-            # Count updates for this week
-            aws_count = Update.query.filter(
-                Update.provider == 'aws',
-                Update.published_date >= week_start,
-                Update.published_date < week_end
-            ).count()
-            
-            azure_count = Update.query.filter(
-                Update.provider == 'azure',
-                Update.published_date >= week_start,
-                Update.published_date < week_end
-            ).count()
-            
-            # Create new insight
-            insight = WeeklyInsight(
-                week_start=week_start,
-                week_end=week_end,
-                aws_updates=aws_count,
-                azure_updates=azure_count
-            )
-            db.session.add(insight)
+        # Get latest updates
+        latest_aws = Update.query.filter_by(provider='aws').order_by(Update.published_date.desc()).first()
+        latest_azure = Update.query.filter_by(provider='azure').order_by(Update.published_date.desc()).first()
         
+        return render_template('admin.html', 
+                             total_aws=total_aws, 
+                             total_azure=total_azure,
+                             latest_aws=latest_aws,
+                             latest_azure=latest_azure)
+
+    @app.route('/admin/refresh', methods=['POST'])
+    def admin_refresh():
         try:
+            # AWS Updates
+            aws_scraper = AWSScraper()
+            aws_updates = aws_scraper.scrape()
+            aws_count = 0
+            for update in aws_updates:
+                # Check if update already exists
+                existing_update = Update.query.filter_by(
+                    provider='aws',
+                    title=update['title'],
+                    published_date=update['published_date']
+                ).first()
+                
+                if not existing_update:
+                    new_update = Update(
+                        provider=update['provider'],
+                        title=update['title'],
+                        description=update['description'],
+                        url=update['url'],
+                        published_date=update['published_date'],
+                        categories=update['categories'],
+                        product_name=update['product_name'],
+                        update_types=update['update_types']
+                    )
+                    db.session.add(new_update)
+                    aws_count += 1
+
+            # Azure Updates
+            azure_scraper = AzureScraper()
+            azure_updates = azure_scraper.scrape()
+            azure_count = 0
+            for update in azure_updates:
+                # Check if update already exists
+                existing_update = Update.query.filter_by(
+                    provider='azure',
+                    title=update.title,
+                    published_date=update.published_date
+                ).first()
+                
+                if not existing_update:
+                    db.session.add(update)
+                    azure_count += 1
+
+            db.session.commit()
+            flash(f'Successfully fetched {aws_count} new AWS updates and {azure_count} new Azure updates!', 'success')
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error fetching updates: {str(e)}', 'error')
+        
+        return redirect(url_for('admin'))
+
+    @app.route('/admin/generate_insights', methods=['POST'])
+    def admin_generate_insights():
+        try:
+            # Generate weekly insights
+            # Start from 4 weeks ago
+            today = datetime.utcnow()
+            start_of_current_week = today - timedelta(days=today.weekday())
+            start_of_current_week = start_of_current_week.replace(hour=0, minute=0, second=0, microsecond=0)
+            
+            for i in range(4):  # Last 4 weeks
+                week_start = start_of_current_week - timedelta(weeks=i)
+                week_end = week_start + timedelta(days=7)
+                
+                # Check if insight already exists for this week
+                existing_insight = WeeklyInsight.query.filter_by(week_start=week_start).first()
+                if existing_insight:
+                    continue
+                
+                # Count updates for this week
+                aws_count = Update.query.filter(
+                    Update.provider == 'aws',
+                    Update.published_date >= week_start,
+                    Update.published_date < week_end
+                ).count()
+                
+                azure_count = Update.query.filter(
+                    Update.provider == 'azure',
+                    Update.published_date >= week_start,
+                    Update.published_date < week_end
+                ).count()
+                
+                # Create new insight
+                insight = WeeklyInsight(
+                    week_start=week_start,
+                    week_end=week_end,
+                    aws_updates=aws_count,
+                    azure_updates=azure_count
+                )
+                db.session.add(insight)
+            
             db.session.commit()
             flash('Weekly insights have been generated.', 'success')
         except Exception as e:
             db.session.rollback()
             flash(f'Error generating insights: {str(e)}', 'error')
-        
-        # Get stats for display
-        aws_count = Update.query.filter_by(provider='aws').count()
-        azure_count = Update.query.filter_by(provider='azure').count()
-        latest_update = Update.query.order_by(Update.created_at.desc()).first()
-        last_refresh = latest_update.created_at if latest_update else None
-        return render_template('admin.html', aws_count=aws_count, azure_count=azure_count, last_refresh=last_refresh)
-
-    @app.route('/admin/refresh', methods=['POST'])
-    def admin_refresh():
-        # Create scrapers
-        aws_scraper = AWSScraper()
-        azure_scraper = AzureScraper()
-        
-        try:
-            # Fetch updates
-            aws_scraper.fetch_updates()
-            azure_scraper.fetch_updates()
-            flash('Successfully fetched new updates.', 'success')
-        except Exception as e:
-            flash(f'Error fetching updates: {str(e)}', 'error')
         
         return redirect(url_for('admin'))
 
@@ -321,18 +379,49 @@ def init_routes(app):
             flash(f'Error updating AWS products list: {str(e)}', 'error')
         return redirect(url_for('admin'))
 
+    @app.route('/admin/cleanup', methods=['POST'])
+    def admin_cleanup():
+        try:
+            # Find duplicate Azure updates
+            duplicates = db.session.query(Update.title, Update.published_date, func.count('*').label('count'))\
+                .filter_by(provider='azure')\
+                .group_by(Update.title, Update.published_date)\
+                .having(func.count('*') > 1)\
+                .all()
+            
+            removed_count = 0
+            for title, published_date, count in duplicates:
+                # Get all updates with this title and date
+                updates = Update.query.filter_by(
+                    provider='azure',
+                    title=title,
+                    published_date=published_date
+                ).order_by(Update.id).all()
+                
+                # Keep the first one, delete the rest
+                for update in updates[1:]:
+                    db.session.delete(update)
+                    removed_count += 1
+            
+            db.session.commit()
+            flash(f'Successfully removed {removed_count} duplicate Azure updates.', 'success')
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error cleaning up duplicates: {str(e)}', 'error')
+        
+        return redirect(url_for('admin'))
+
     @app.route('/debug')
     def debug():
         aws_updates = Update.query.filter_by(provider='aws').order_by(Update.published_date.desc()).limit(3).all()
         azure_updates = Update.query.filter_by(provider='azure').order_by(Update.published_date.desc()).limit(3).all()
         
-        aws_count = Update.query.filter_by(provider='aws').count()
-        azure_count = Update.query.filter_by(provider='azure').count()
+        total_aws, total_azure = get_update_counts()
         
         debug_info = {
             'counts': {
-                'aws': aws_count,
-                'azure': azure_count
+                'aws': total_aws,
+                'azure': total_azure
             },
             'sample_aws': [{
                 'title': u.title,

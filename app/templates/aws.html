@@ -84,15 +84,25 @@
         <ul class="pagination justify-content-center">
             <!-- Previous Page -->
             <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
-                <a class="page-link" href="{{ url_for('aws_updates', page=pagination.prev_num, **request.args) if pagination.has_prev else '#' }}" aria-label="Previous">
+                {% with page_args = dict(request.args) %}
+                {% if 'page' in page_args %}
+                    {% set _ = page_args.pop('page') %}
+                {% endif %}
+                <a class="page-link" href="{{ url_for('aws_updates', page=pagination.prev_num, **page_args) if pagination.has_prev else '#' }}" aria-label="Previous">
                     <span aria-hidden="true">&laquo;</span>
                 </a>
+                {% endwith %}
             </li>
             
             <!-- First Page -->
             {% if pagination.page > 2 %}
             <li class="page-item">
-                <a class="page-link" href="{{ url_for('aws_updates', page=1, **request.args) }}">1</a>
+                {% with page_args = dict(request.args) %}
+                {% if 'page' in page_args %}
+                    {% set _ = page_args.pop('page') %}
+                {% endif %}
+                <a class="page-link" href="{{ url_for('aws_updates', page=1, **page_args) }}">1</a>
+                {% endwith %}
             </li>
             {% if pagination.page > 3 %}
             <li class="page-item disabled">
@@ -104,7 +114,12 @@
             <!-- Page Numbers -->
             {% for page_num in range(max(1, pagination.page - 1), min(pagination.pages + 1, pagination.page + 2)) %}
             <li class="page-item {% if page_num == pagination.page %}active{% endif %}">
-                <a class="page-link" href="{{ url_for('aws_updates', page=page_num, **request.args) }}">{{ page_num }}</a>
+                {% with page_args = dict(request.args) %}
+                {% if 'page' in page_args %}
+                    {% set _ = page_args.pop('page') %}
+                {% endif %}
+                <a class="page-link" href="{{ url_for('aws_updates', page=page_num, **page_args) }}">{{ page_num }}</a>
+                {% endwith %}
             </li>
             {% endfor %}
             
@@ -116,15 +131,25 @@
             </li>
             {% endif %}
             <li class="page-item">
-                <a class="page-link" href="{{ url_for('aws_updates', page=pagination.pages, **request.args) }}">{{ pagination.pages }}</a>
+                {% with page_args = dict(request.args) %}
+                {% if 'page' in page_args %}
+                    {% set _ = page_args.pop('page') %}
+                {% endif %}
+                <a class="page-link" href="{{ url_for('aws_updates', page=pagination.pages, **page_args) }}">{{ pagination.pages }}</a>
+                {% endwith %}
             </li>
             {% endif %}
             
             <!-- Next Page -->
             <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
-                <a class="page-link" href="{{ url_for('aws_updates', page=pagination.next_num, **request.args) if pagination.has_next else '#' }}" aria-label="Next">
+                {% with page_args = dict(request.args) %}
+                {% if 'page' in page_args %}
+                    {% set _ = page_args.pop('page') %}
+                {% endif %}
+                <a class="page-link" href="{{ url_for('aws_updates', page=pagination.next_num, **page_args) if pagination.has_next else '#' }}" aria-label="Next">
                     <span aria-hidden="true">&raquo;</span>
                 </a>
+                {% endwith %}
             </li>
         </ul>
     </nav>
