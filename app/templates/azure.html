@@ -11,56 +11,73 @@
 
     <!-- Filter Section -->
     <div class="filter-section">
-        <!-- Categories Filter -->
-        <div class="dropdown">
-            <button class="btn btn-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                Categories
-                <span class="badge bg-primary ms-1">{{ azure_categories|length }}</span>
-            </button>
-            <ul class="dropdown-menu py-2" style="max-height: 400px; overflow-y: auto;">
-                {% for category in azure_categories %}
-                <li>
-                    <div class="dropdown-item">
-                        <div class="form-check">
-                            <input class="form-check-input filter-checkbox" type="checkbox" id="category-{{ category|replace(' ', '-')|lower }}" data-filter="category" value="{{ category }}">
-                            <label class="form-check-label" for="category-{{ category|replace(' ', '-')|lower }}">
-                                {{ category }}
-                            </label>
+        <form id="filter-form" method="get" action="{{ url_for('azure_updates') }}" class="d-flex gap-2">
+            <!-- Categories Filter -->
+            <div class="dropdown">
+                <button class="btn btn-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    Categories
+                    <span class="badge bg-primary ms-1">{{ azure_categories|length }}</span>
+                </button>
+                <ul class="dropdown-menu py-2" style="max-height: 400px; overflow-y: auto;">
+                    {% for category in azure_categories %}
+                    <li>
+                        <div class="dropdown-item">
+                            <div class="form-check">
+                                <input class="form-check-input filter-checkbox" type="checkbox" name="categories"
+                                       id="category-{{ category|replace(' ', '-')|lower }}" 
+                                       value="{{ category }}"
+                                       {% if category in selected_categories %}checked{% endif %}>
+                                <label class="form-check-label" for="category-{{ category|replace(' ', '-')|lower }}">
+                                    {{ category }}
+                                </label>
+                            </div>
                         </div>
-                    </div>
-                </li>
-                {% endfor %}
-            </ul>
-        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
 
-        <!-- Update Types Filter -->
-        <div class="dropdown">
-            <button class="btn btn-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                Update Types
-                <span class="badge bg-primary ms-1">{{ azure_update_types|length }}</span>
-            </button>
-            <ul class="dropdown-menu py-2" style="max-height: 400px; overflow-y: auto;">
-                {% for type in azure_update_types %}
-                <li>
-                    <div class="dropdown-item">
-                        <div class="form-check">
-                            <input class="form-check-input filter-checkbox" type="checkbox" id="type-{{ type|replace(' ', '-')|lower }}" data-filter="type" value="{{ type }}">
-                            <label class="form-check-label" for="type-{{ type|replace(' ', '-')|lower }}">
-                                {{ type }}
-                            </label>
+            <!-- Update Types Filter -->
+            <div class="dropdown">
+                <button class="btn btn-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    Update Types
+                    <span class="badge bg-primary ms-1">{{ azure_update_types|length }}</span>
+                </button>
+                <ul class="dropdown-menu py-2" style="max-height: 400px; overflow-y: auto;">
+                    {% for type in azure_update_types %}
+                    <li>
+                        <div class="dropdown-item">
+                            <div class="form-check">
+                                <input class="form-check-input filter-checkbox" type="checkbox" name="types"
+                                       id="type-{{ type|replace(' ', '-')|lower }}" 
+                                       value="{{ type }}"
+                                       {% if type in selected_types %}checked{% endif %}>
+                                <label class="form-check-label" for="type-{{ type|replace(' ', '-')|lower }}">
+                                    {{ type }}
+                                </label>
+                            </div>
                         </div>
-                    </div>
-                </li>
-                {% endfor %}
-            </ul>
-        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            <button type="submit" class="btn btn-primary">Apply Filters</button>
+            {% if selected_categories or selected_types %}
+            <a href="{{ url_for('azure_updates') }}" class="btn btn-outline-secondary">Clear Filters</a>
+            {% endif %}
+        </form>
     </div>
+
+    <!-- Showing Results -->
+    {% if selected_categories or selected_types %}
+    <div class="alert alert-info">
+        Showing {{ total_filtered }} result{% if total_filtered != 1 %}s{% endif %} for selected filters
+    </div>
+    {% endif %}
 
     <!-- Updates List -->
     {% for update in azure_updates %}
-    <div class="card update-card mb-3" 
-         data-categories="{{ update.categories|join(',') }}"
-         data-update-types="{{ update.update_types|join(',') }}">
+    <div class="card update-card mb-3">
         <div class="card-body">
             <span class="badge provider-badge azure-badge float-end">Azure</span>
             <h5 class="card-title">{{ update.title }}</h5>
@@ -109,7 +126,7 @@
         <ul class="pagination justify-content-center">
             <!-- Previous Page -->
             <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
-                <a class="page-link" href="{{ url_for('azure_updates', page=pagination.prev_num) if pagination.has_prev else '#' }}" aria-label="Previous">
+                <a class="page-link" href="{{ url_for('azure_updates', page=pagination.prev_num, **request.args) if pagination.has_prev else '#' }}" aria-label="Previous">
                     <span aria-hidden="true">&laquo;</span>
                 </a>
             </li>
@@ -117,7 +134,7 @@
             <!-- First Page -->
             {% if pagination.page > 2 %}
             <li class="page-item">
-                <a class="page-link" href="{{ url_for('azure_updates', page=1) }}">1</a>
+                <a class="page-link" href="{{ url_for('azure_updates', page=1, **request.args) }}">1</a>
             </li>
             {% if pagination.page > 3 %}
             <li class="page-item disabled">
@@ -129,7 +146,7 @@
             <!-- Page Numbers -->
             {% for page_num in range(max(1, pagination.page - 1), min(pagination.pages + 1, pagination.page + 2)) %}
             <li class="page-item {% if page_num == pagination.page %}active{% endif %}">
-                <a class="page-link" href="{{ url_for('azure_updates', page=page_num) }}">{{ page_num }}</a>
+                <a class="page-link" href="{{ url_for('azure_updates', page=page_num, **request.args) }}">{{ page_num }}</a>
             </li>
             {% endfor %}
             
@@ -141,13 +158,13 @@
             </li>
             {% endif %}
             <li class="page-item">
-                <a class="page-link" href="{{ url_for('azure_updates', page=pagination.pages) }}">{{ pagination.pages }}</a>
+                <a class="page-link" href="{{ url_for('azure_updates', page=pagination.pages, **request.args) }}">{{ pagination.pages }}</a>
             </li>
             {% endif %}
             
             <!-- Next Page -->
             <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
-                <a class="page-link" href="{{ url_for('azure_updates', page=pagination.next_num) if pagination.has_next else '#' }}" aria-label="Next">
+                <a class="page-link" href="{{ url_for('azure_updates', page=pagination.next_num, **request.args) if pagination.has_next else '#' }}" aria-label="Next">
                     <span aria-hidden="true">&raquo;</span>
                 </a>
             </li>
@@ -228,9 +245,6 @@ document.addEventListener('DOMContentLoaded', function() {
     dropdowns.map(function (dropdown) {
         return new bootstrap.Dropdown(dropdown)
     });
-
-    // Get all checkboxes
-    const checkboxes = document.querySelectorAll('.filter-checkbox');
     
     // Prevent dropdown from closing when clicking checkboxes
     document.querySelectorAll('.dropdown-menu').forEach(dropdown => {
@@ -240,34 +254,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 e.stopPropagation();
             }
         });
-    });
-    
-    // Function to update visible updates based on selected filters
-    function updateVisibleUpdates() {
-        // Get selected categories and types
-        const selectedCategories = Array.from(document.querySelectorAll('[data-filter="category"]:checked')).map(cb => cb.value);
-        const selectedTypes = Array.from(document.querySelectorAll('[data-filter="type"]:checked')).map(cb => cb.value);
-        
-        // Get all update cards
-        const updates = document.querySelectorAll('.update-card');
-        
-        // Show/hide updates based on filters
-        updates.forEach(update => {
-            const updateCategories = update.dataset.categories.split(',');
-            const updateTypes = update.dataset.updateTypes.split(',');
-            
-            const categoryMatch = selectedCategories.length === 0 || 
-                                selectedCategories.some(cat => updateCategories.includes(cat));
-            const typeMatch = selectedTypes.length === 0 || 
-                            selectedTypes.some(type => updateTypes.includes(type));
-            
-            update.style.display = (categoryMatch && typeMatch) ? 'block' : 'none';
-        });
-    }
-    
-    // Add event listeners to checkboxes
-    checkboxes.forEach(checkbox => {
-        checkbox.addEventListener('change', updateVisibleUpdates);
     });
 });
 </script>

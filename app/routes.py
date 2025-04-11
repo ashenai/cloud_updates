@@ -24,7 +24,7 @@ to ensure its accuracy and functionality, users should:
 
 from datetime import datetime, timedelta
 from flask import render_template, redirect, url_for, flash, request, jsonify
-from sqlalchemy import func, desc
+from sqlalchemy import func, desc, or_
 from app.models import Update, WeeklyInsight
 from app.scraper.aws_scraper import AWSScraper
 from app.scraper.azure_scraper import AzureScraper
@@ -52,53 +52,83 @@ def init_routes(app):
         page = request.args.get('page', 1, type=int)
         per_page = 10  # Number of updates per page
         
-        # Get paginated updates
-        pagination = Update.query.filter_by(provider='aws').order_by(
-            Update.published_date.desc()
-        ).paginate(page=page, per_page=per_page, error_out=False)
+        # Get filter parameters from query string
+        selected_products = request.args.getlist('products')
+        
+        # Start with base query
+        query = Update.query.filter_by(provider='aws')
+        
+        # Apply filters if they exist
+        if selected_products:
+            query = query.filter(Update.product_name.in_(selected_products))
+        
+        # Get total filtered count before pagination
+        total_filtered = query.count()
+        
+        # Apply sorting and pagination
+        pagination = query.order_by(Update.published_date.desc()).paginate(
+            page=page, per_page=per_page, error_out=False
+        )
         
         aws_updates = pagination.items
         
-        # Get unique product names for filtering
-        aws_products = set()
-        for update in Update.query.filter_by(provider='aws').all():
-            if update.product_name:
-                aws_products.add(update.product_name)
-        
-        # Get unique categories and update types for filtering
-        aws_categories = set()
-        aws_update_types = set()
-        
-        for update in aws_updates:
-            if update.categories:
-                aws_categories.update(update.categories)
-            if update.update_types:
-                aws_update_types.update(update.update_types)
+        # Get all unique product names for filtering (from entire dataset)
+        aws_products = db.session.query(Update.product_name).filter(
+            Update.provider == 'aws',
+            Update.product_name.isnot(None)
+        ).distinct().all()
+        aws_products = sorted([p[0] for p in aws_products if p[0]])  # Flatten and remove empty
         
         return render_template('aws.html', 
                              aws_updates=aws_updates,
-                             aws_products=sorted(aws_products),
-                             aws_categories=sorted(aws_categories),
-                             aws_update_types=sorted(aws_update_types),
-                             pagination=pagination)
+                             aws_products=aws_products,
+                             selected_products=selected_products,
+                             pagination=pagination,
+                             total_filtered=total_filtered)
 
     @app.route('/azure')
     def azure_updates():
         page = request.args.get('page', 1, type=int)
         per_page = 10  # Number of updates per page
         
-        # Get paginated updates
-        pagination = Update.query.filter_by(provider='azure').order_by(
-            Update.published_date.desc()
-        ).paginate(page=page, per_page=per_page, error_out=False)
+        # Get filter parameters from query string
+        selected_categories = request.args.getlist('categories')
+        selected_types = request.args.getlist('types')
+        
+        # Start with base query
+        query = Update.query.filter_by(provider='azure')
+        
+        # Apply filters if they exist
+        if selected_categories:
+            # Create conditions for each category
+            category_conditions = []
+            for category in selected_categories:
+                category_conditions.append(Update._categories.like(f'%{category}%'))
+            query = query.filter(or_(*category_conditions))
+            
+        if selected_types:
+            # Create conditions for each type
+            type_conditions = []
+            for update_type in selected_types:
+                type_conditions.append(Update._update_types.like(f'%{update_type}%'))
+            query = query.filter(or_(*type_conditions))
+        
+        # Get total filtered count before pagination
+        total_filtered = query.count()
+        
+        # Apply sorting and pagination
+        pagination = query.order_by(Update.published_date.desc()).paginate(
+            page=page, per_page=per_page, error_out=False
+        )
         
         azure_updates = pagination.items
         
-        # Get unique categories and update types for filtering
+        # Get all unique categories and types (from entire dataset)
+        all_updates = Update.query.filter_by(provider='azure').all()
         azure_categories = set()
         azure_update_types = set()
         
-        for update in azure_updates:
+        for update in all_updates:
             if update.categories:
                 azure_categories.update(update.categories)
             if update.update_types:
@@ -108,7 +138,10 @@ def init_routes(app):
                              azure_updates=azure_updates,
                              azure_categories=sorted(azure_categories),
                              azure_update_types=sorted(azure_update_types),
-                             pagination=pagination)
+                             selected_categories=selected_categories,
+                             selected_types=selected_types,
+                             pagination=pagination,
+                             total_filtered=total_filtered)
 
     @app.route('/insights')
     def insights():
