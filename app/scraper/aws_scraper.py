@@ -34,12 +34,77 @@ class AWSScraper:
             self._services = self._services_fetcher.get_services()
         return self._services
 
+    def _extract_potential_service_name(self, title):
+        """Extract potential service name from title by looking for AWS/Amazon prefix followed by capitalized words."""
+        import re
+        
+        # Common AWS region prefixes to exclude
+        region_prefixes = [
+            r'AWS Europe',
+            r'AWS Asia Pacific',
+            r'AWS Middle East',
+            r'AWS North America',
+            r'AWS South America',
+            r'AWS Africa',
+            r'AWS US',
+            r'AWS Canada',
+        ]
+        
+        # Look for "AWS" or "Amazon" prefix followed by capitalized words
+        patterns = [
+            r'AWS\s+([A-Z][a-zA-Z]*(?:\s+[A-Z][a-zA-Z]*)*)',  # Allow mixed case after first capital
+            r'Amazon\s+([A-Z][a-zA-Z]*(?:\s+[A-Z][a-zA-Z]*)*)'
+        ]
+        
+        # First try to find the earliest match in the title
+        earliest_match = None
+        earliest_pos = len(title)
+        
+        for pattern in patterns:
+            for match in re.finditer(pattern, title):
+                # Skip if this matches a region prefix
+                is_region = any(re.match(f"{prefix}\\b", match.group(0)) for prefix in region_prefixes)
+                if not is_region:
+                    pos = match.start()
+                    if pos < earliest_pos:
+                        earliest_pos = pos
+                        earliest_match = match
+                        prefix = "AWS" if pattern.startswith("AWS") else "Amazon"
+        
+        if earliest_match:
+            # Get the words that follow
+            service_name = earliest_match.group(1)
+            # Only take words until we hit a word that doesn't start with capital
+            words = []
+            for word in service_name.split():
+                if not word[0].isupper():
+                    break
+                words.append(word)
+            if words:
+                return f"{prefix} {' '.join(words)}"
+        
+        return None
+
     def extract_product_name(self, title):
         """Extract AWS product name by finding perfect matches with the services list."""
         import re
         services = self._get_services()
         
-        # Try each service name
+        # First try exact matches at the start of the title
+        for service in services:
+            # Create regex pattern with word boundaries
+            pattern = r'^' + re.escape(service) + r'\b'
+            if re.search(pattern, title):
+                return service
+            
+            # Try without prefix if it starts with "Amazon" or "AWS"
+            if service.startswith(("Amazon ", "AWS ")):
+                short_name = service.split(" ", 1)[1]
+                pattern = r'^(?:Amazon|AWS)\s+' + re.escape(short_name) + r'\b'
+                if re.search(pattern, title):
+                    return service
+
+        # Then try exact matches anywhere in the title
         for service in services:
             # Create regex pattern with word boundaries
             pattern = r'\b' + re.escape(service) + r'\b'
@@ -53,7 +118,8 @@ class AWSScraper:
                 if re.search(pattern, title):
                     return service
         
-        return None
+        # If no match found in cache, try to extract potential service name from title
+        return self._extract_potential_service_name(title)
 
     def clean_description(self, description, product_name=None):
         """Clean the HTML description and add AWS Product section."""
