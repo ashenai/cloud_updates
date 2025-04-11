@@ -4,58 +4,64 @@
 
 {% block content %}
 <div class="container mt-4">
-    <div class="row">
-        <div class="col-12">
-            <div class="card shadow-sm">
-                <div class="card-body">
-                    <h1 class="h4 mb-4">Admin Dashboard</h1>
-                    
-                    <div class="row mb-4">
-                        <div class="col-md-4">
-                            <div class="card bg-light">
-                                <div class="card-body">
-                                    <h5 class="card-title mb-3">AWS Updates</h5>
-                                    <p class="card-text display-6">{{ aws_count }}</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="card bg-light">
-                                <div class="card-body">
-                                    <h5 class="card-title mb-3">Azure Updates</h5>
-                                    <p class="card-text display-6">{{ azure_count }}</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="card bg-light">
-                                <div class="card-body">
-                                    <h5 class="card-title mb-3">Last Refresh</h5>
-                                    <p class="card-text">
-                                        {% if last_refresh %}
-                                            {{ last_refresh.strftime('%Y-%m-%d %H:%M UTC') }}
-                                        {% else %}
-                                            Never
-                                        {% endif %}
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Admin Dashboard</h1>
+        <div>
+            <form action="{{ url_for('admin_refresh') }}" method="post" class="d-inline">
+                <button type="submit" class="btn btn-primary me-2">Fetch New Updates</button>
+            </form>
+            <a href="{{ url_for('admin') }}" class="btn btn-outline-secondary">Generate Insights</a>
+        </div>
+    </div>
 
-                    <div class="d-grid gap-2 d-md-flex justify-content-md-start">
-                        <form action="{{ url_for('admin_refresh') }}" method="post">
-                            <button type="submit" class="btn btn-primary">
-                                Refresh Updates
-                            </button>
-                        </form>
-                        <form action="{{ url_for('admin_update_aws_products') }}" method="post">
-                            <button type="submit" class="btn btn-secondary">
-                                Update AWS Products List
-                            </button>
-                        </form>
-                        <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">Back to Home</a>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <div class="row g-4">
+        <!-- AWS Stats -->
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="card-title mb-0">AWS Updates</h5>
+                        <span class="badge provider-badge aws-badge">AWS</span>
                     </div>
+                    <p class="card-text">Total Updates: {{ aws_count }}</p>
+                    {% if latest_aws %}
+                    <p class="card-text">
+                        Latest Update: <br>
+                        <small class="text-muted">{{ latest_aws.title }}</small><br>
+                        <small class="text-muted">{{ latest_aws.published_date.strftime('%Y-%m-%d %H:%M UTC') }}</small>
+                    </p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Azure Stats -->
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="card-title mb-0">Azure Updates</h5>
+                        <span class="badge provider-badge azure-badge">Azure</span>
+                    </div>
+                    <p class="card-text">Total Updates: {{ azure_count }}</p>
+                    {% if latest_azure %}
+                    <p class="card-text">
+                        Latest Update: <br>
+                        <small class="text-muted">{{ latest_azure.title }}</small><br>
+                        <small class="text-muted">{{ latest_azure.published_date.strftime('%Y-%m-%d %H:%M UTC') }}</small>
+                    </p>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -64,19 +70,32 @@
 
 <style>
 .card {
-    border: 1px solid #e0e0e0;
-    border-radius: 8px;
+    border: none;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
 }
-.bg-light {
-    background-color: #F8F9FA !important;
+
+.card-title {
+    color: #333;
+    font-weight: 500;
 }
-.display-6 {
-    font-size: 2rem;
-    font-weight: 600;
-    color: #323130;
+
+.provider-badge {
+    font-size: 0.8rem;
+    padding: 0.4em 0.8em;
 }
-.h4 {
-    color: #323130;
+
+.aws-badge {
+    background-color: #FF9900;
+    color: #232F3E;
+}
+
+.azure-badge {
+    background-color: #008AD7;
+    color: white;
+}
+
+.alert {
+    margin-bottom: 2rem;
 }
 </style>
 {% endblock %}

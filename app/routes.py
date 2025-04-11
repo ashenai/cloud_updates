@@ -145,59 +145,121 @@ def init_routes(app):
 
     @app.route('/insights')
     def insights():
-        # Get the start of the current week
-        today = datetime.utcnow()
-        start_of_week = today - timedelta(days=today.weekday())
-        start_of_week = start_of_week.replace(hour=0, minute=0, second=0, microsecond=0)
-
-        # AWS Insights
-        aws_updates = Update.query.filter(
-            Update.provider == 'aws',
-            Update.published_date >= start_of_week
-        ).all()
-
-        aws_categories = {}
-        for update in aws_updates:
-            for category in update.categories:
-                aws_categories[category] = aws_categories.get(category, 0) + 1
-
-        aws_total = len(aws_updates)
-        aws_insights = [
-            {
-                'category': category,
-                'count': count,
-                'percentage': (count / aws_total * 100) if aws_total > 0 else 0
-            }
-            for category, count in sorted(aws_categories.items(), key=lambda x: x[1], reverse=True)
-        ]
-
-        # Azure Insights
-        azure_updates = Update.query.filter(
-            Update.provider == 'azure',
-            Update.published_date >= start_of_week
-        ).all()
-
+        # Get weekly insights ordered by week_start
+        insights = WeeklyInsight.query.order_by(WeeklyInsight.week_start.asc()).all()
+        
+        # Prepare trend chart data
+        labels = []
+        aws_data = []
+        azure_data = []
+        
+        for insight in insights:
+            # Format date as 'YYYY-MM-DD'
+            week_label = insight.week_start.strftime('%Y-%m-%d')
+            labels.append(week_label)
+            aws_data.append(insight.aws_updates)
+            azure_data.append(insight.azure_updates)
+        
+        trend_chart_data = {
+            'labels': labels,
+            'datasets': [
+                {
+                    'label': 'AWS Updates',
+                    'data': aws_data,
+                    'borderColor': '#FF9900',  # AWS brand color
+                    'backgroundColor': 'rgba(255, 153, 0, 0.1)',
+                    'fill': True
+                },
+                {
+                    'label': 'Azure Updates',
+                    'data': azure_data,
+                    'borderColor': '#008AD7',  # Azure brand color
+                    'backgroundColor': 'rgba(0, 138, 215, 0.1)',
+                    'fill': True
+                }
+            ]
+        }
+        
+        # Get Azure category distribution
+        azure_updates = Update.query.filter_by(provider='azure').all()
         azure_categories = {}
         for update in azure_updates:
             for category in update.categories:
                 azure_categories[category] = azure_categories.get(category, 0) + 1
+        
+        # Sort categories by count and get top 5
+        sorted_azure_categories = sorted(azure_categories.items(), key=lambda x: x[1], reverse=True)
+        top_5_azure = sorted_azure_categories[:5]
+        rest_azure = sum(count for _, count in sorted_azure_categories[5:])
+        
+        azure_chart_data = {
+            'labels': [cat[0] for cat in top_5_azure] + ['Rest'],
+            'datasets': [{
+                'label': 'Azure Updates by Category',
+                'data': [cat[1] for cat in top_5_azure] + [rest_azure],
+                'backgroundColor': [
+                    '#008AD7',  # Azure blue
+                    '#00A2ED',
+                    '#00B7FF',
+                    '#33C6FF',
+                    '#66D5FF',
+                    '#99E4FF'  # Lighter shade for 'Rest'
+                ]
+            }]
+        }
+        
+        # Get AWS product distribution
+        aws_updates = Update.query.filter_by(provider='aws').all()
+        aws_products = {}
+        for update in aws_updates:
+            if update.product_name:
+                aws_products[update.product_name] = aws_products.get(update.product_name, 0) + 1
+        
+        # Sort products by count and get top 5
+        sorted_aws_products = sorted(aws_products.items(), key=lambda x: x[1], reverse=True)
+        top_5_aws = sorted_aws_products[:5]
+        rest_aws = sum(count for _, count in sorted_aws_products[5:])
+        
+        aws_chart_data = {
+            'labels': [prod[0] for prod in top_5_aws] + ['Rest'],
+            'datasets': [{
+                'label': 'AWS Updates by Product',
+                'data': [prod[1] for prod in top_5_aws] + [rest_aws],
+                'backgroundColor': [
+                    '#FF9900',  # AWS orange
+                    '#FFB13D',
+                    '#FFC266',
+                    '#FFD699',
+                    '#FFE4B3',
+                    '#FFF2D9'  # Lighter shade for 'Rest'
+                ]
+            }]
+        }
+        
+        return render_template('insights.html', 
+                             insights=insights,
+                             trend_chart_data=trend_chart_data,
+                             azure_chart_data=azure_chart_data,
+                             aws_chart_data=aws_chart_data)
 
-        azure_total = len(azure_updates)
-        azure_insights = [
-            {
-                'category': category,
-                'count': count,
-                'percentage': (count / azure_total * 100) if azure_total > 0 else 0
-            }
-            for category, count in sorted(azure_categories.items(), key=lambda x: x[1], reverse=True)
-        ]
-
-        # Weekly Trends
-        weekly_trends = []
+    @app.route('/admin')
+    def admin():
+        # Generate weekly insights
+        # Start from 4 weeks ago
+        today = datetime.utcnow()
+        start_of_current_week = today - timedelta(days=today.weekday())
+        start_of_current_week = start_of_current_week.replace(hour=0, minute=0, second=0, microsecond=0)
+        
         for i in range(4):  # Last 4 weeks
-            week_start = start_of_week - timedelta(weeks=i)
+            week_start = start_of_current_week - timedelta(weeks=i)
             week_end = week_start + timedelta(days=7)
             
+            # Check if insight already exists for this week
+            existing_insight = WeeklyInsight.query.filter_by(week_start=week_start).first()
+            if existing_insight:
+                continue
+            
+            # Count updates for this week
             aws_count = Update.query.filter(
                 Update.provider == 'aws',
                 Update.published_date >= week_start,
@@ -210,72 +272,43 @@ def init_routes(app):
                 Update.published_date < week_end
             ).count()
             
-            weekly_trends.append({
-                'week_start': week_start,
-                'aws_count': aws_count,
-                'azure_count': azure_count
-            })
-
-        return render_template('insights.html',
-                            aws_insights=aws_insights,
-                            azure_insights=azure_insights,
-                            weekly_trends=weekly_trends)
-
-    @app.route('/admin')
-    def admin():
+            # Create new insight
+            insight = WeeklyInsight(
+                week_start=week_start,
+                week_end=week_end,
+                aws_updates=aws_count,
+                azure_updates=azure_count
+            )
+            db.session.add(insight)
+        
+        try:
+            db.session.commit()
+            flash('Weekly insights have been generated.', 'success')
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error generating insights: {str(e)}', 'error')
+        
+        # Get stats for display
         aws_count = Update.query.filter_by(provider='aws').count()
         azure_count = Update.query.filter_by(provider='azure').count()
         latest_update = Update.query.order_by(Update.created_at.desc()).first()
         last_refresh = latest_update.created_at if latest_update else None
         return render_template('admin.html', aws_count=aws_count, azure_count=azure_count, last_refresh=last_refresh)
 
-    @app.route('/admin/refresh', methods=['GET', 'POST'])
+    @app.route('/admin/refresh', methods=['POST'])
     def admin_refresh():
+        # Create scrapers
+        aws_scraper = AWSScraper()
+        azure_scraper = AzureScraper()
+        
         try:
-            # AWS Updates
-            aws_scraper = AWSScraper()
-            aws_updates = aws_scraper.scrape()
-            for update in aws_updates:
-                # Check if update already exists
-                existing_update = Update.query.filter_by(
-                    provider='aws',
-                    title=update['title'],
-                    published_date=update['published_date']
-                ).first()
-                
-                if not existing_update:
-                    new_update = Update(
-                        provider=update['provider'],
-                        title=update['title'],
-                        description=update['description'],
-                        url=update['url'],
-                        published_date=update['published_date'],
-                        categories=update['categories'],
-                        product_name=update['product_name'],
-                        update_types=update['update_types']
-                    )
-                    db.session.add(new_update)
-
-            # Azure Updates
-            azure_scraper = AzureScraper()
-            azure_updates = azure_scraper.scrape()
-            for update in azure_updates:
-                # Check if update already exists
-                existing_update = Update.query.filter_by(
-                    provider='azure',
-                    title=update.title,
-                    published_date=update.published_date
-                ).first()
-                
-                if not existing_update:
-                    db.session.add(update)
-
-            db.session.commit()
-            flash('Successfully refreshed updates!', 'success')
+            # Fetch updates
+            aws_scraper.fetch_updates()
+            azure_scraper.fetch_updates()
+            flash('Successfully fetched new updates.', 'success')
         except Exception as e:
-            db.session.rollback()
-            flash(f'Error saving update: {str(e)}', 'error')
-
+            flash(f'Error fetching updates: {str(e)}', 'error')
+        
         return redirect(url_for('admin'))
 
     @app.route('/admin/update_aws_products', methods=['POST'])
