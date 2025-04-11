@@ -76,45 +76,91 @@
     {% endif %}
 
     <!-- Updates List -->
-    {% for update in azure_updates %}
-    <div class="card update-card mb-3">
-        <div class="card-body">
-            <span class="badge provider-badge azure-badge float-end">Azure</span>
-            <h5 class="card-title">{{ update.title }}</h5>
-            <p class="card-text">{{ update.description[:200] }}...</p>
-            
-            <!-- Categories and Update Types -->
-            <div class="meta-tags">
-                {% if update.categories %}
-                <div class="tag-section">
-                    <div class="tag-section-title">Product Categories</div>
-                    <div class="tags-container">
-                        <div class="tag-list">
-                            {% for category in update.categories %}
-                            <span class="tag-list-item">{{ category }}</span>
-                            {% endfor %}
+    {% for update in pagination.items %}
+    <div class="row mb-4">
+        <div class="col">
+            <div class="card update-card">
+                <div class="card-body">
+                    <span class="badge provider-badge azure-badge float-end">Azure</span>
+                    <h5 class="card-title">{{ update.title }}</h5>
+                    <p class="card-text">{{ update.description[:200] }}...</p>
+                    
+                    <!-- Categories and Update Types -->
+                    <div class="meta-tags">
+                        {% if update.categories %}
+                        <div class="tag-section">
+                            <div class="tag-section-title">Product Categories</div>
+                            <div class="tags-container">
+                                <div class="tag-list">
+                                    {% for category in update.categories %}
+                                    <span class="tag-list-item">{{ category }}</span>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        {% if update.update_types %}
+                        <div class="tag-section">
+                            <div class="tag-section-title">Update Types</div>
+                            <div class="tags-container">
+                                <div class="tag-list">
+                                    {% for type in update.update_types %}
+                                    <span class="tag-list-item">{{ type }}</span>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="mt-3">
+                        <small class="text-muted">{{ update.published_date.strftime('%Y-%m-%d %H:%M UTC') }}</small>
+                        <div class="float-end">
+                            <button type="button" class="btn btn-sm btn-outline-secondary me-2" 
+                                    data-bs-toggle="modal" 
+                                    data-bs-target="#previewModal{{ update.id }}"
+                                    aria-label="Preview {{ update.title }}">
+                                Preview
+                            </button>
+                            <a href="{{ update.url }}" class="btn btn-sm btn-outline-primary" target="_blank">Read More</a>
                         </div>
                     </div>
                 </div>
-                {% endif %}
-                
-                {% if update.update_types %}
-                <div class="tag-section">
-                    <div class="tag-section-title">Update Types</div>
-                    <div class="tags-container">
-                        <div class="tag-list">
-                            {% for type in update.update_types %}
-                            <span class="tag-list-item">{{ type }}</span>
-                            {% endfor %}
-                        </div>
-                    </div>
-                </div>
-                {% endif %}
             </div>
-            
-            <div class="mt-3">
-                <small class="text-muted">{{ update.published_date.strftime('%Y-%m-%d %H:%M UTC') }}</small>
-                <a href="{{ update.url }}" class="btn btn-sm btn-outline-primary float-end" target="_blank">Read More</a>
+        </div>
+    </div>
+
+    <!-- Preview Modal for each update -->
+    <div class="modal fade" id="previewModal{{ update.id }}" tabindex="-1" aria-labelledby="previewModalLabel{{ update.id }}" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="previewModalLabel{{ update.id }}">{{ update.title }}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-4">{{ update.description }}</div>
+                    <div class="meta-info">
+                        <div class="meta-item mb-2">
+                            <strong>Published:</strong> {{ update.published_date.strftime('%Y-%m-%d %H:%M UTC') }}
+                        </div>
+                        <div class="meta-item mb-2">
+                            <strong>Provider:</strong> Azure
+                        </div>
+                        <div class="meta-item mb-2">
+                            <strong>Product:</strong> {{ update.product_name }}
+                        </div>
+                        {% if update.update_types %}
+                        <div class="meta-item mb-2">
+                            <strong>Update Types:</strong> {{ update.update_types|join(', ') }}
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div class="mt-4">
+                        <a href="{{ update.url }}" class="btn btn-primary" target="_blank">Read Full Update</a>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -261,6 +307,20 @@
     pointer-events: none;
     background-color: #fff;
     border-color: #dee2e6;
+}
+
+.meta-info {
+    background-color: #f8f9fa;
+    padding: 1rem;
+    border-radius: 0.25rem;
+}
+
+.meta-item {
+    margin-bottom: 0.5rem;
+}
+
+.meta-item:last-child {
+    margin-bottom: 0;
 }
 </style>
 <script>

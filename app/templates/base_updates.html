@@ -116,6 +116,76 @@
         color: #323130;
         padding: 0.5rem;
     }
+
+    /* Update Preview Modal */
+    .update-preview-modal .modal-header {
+        border-bottom: none;
+        padding-bottom: 0;
+    }
+    .update-preview-modal .modal-title {
+        font-size: 1.25rem;
+        color: #323130;
+        font-weight: 500;
+    }
+    .update-preview-modal .modal-body {
+        padding-top: 0.5rem;
+    }
+    .update-preview-modal .description {
+        color: #605E5C;
+        font-size: 1rem;
+        line-height: 1.5;
+        margin-bottom: 1.5rem;
+    }
+    .update-preview-modal .meta-info {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+        margin-bottom: 1.5rem;
+    }
+    .update-preview-modal .meta-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.5rem;
+    }
+    .update-preview-modal .meta-label {
+        font-size: 0.9rem;
+        color: #605E5C;
+        min-width: 100px;
+    }
+    .update-preview-modal .meta-value {
+        font-size: 0.9rem;
+        color: #323130;
+    }
+    .update-preview-modal .btn-read-more {
+        width: 100%;
+        padding: 0.75rem;
+        font-weight: 500;
+        transition: all 0.2s ease;
+    }
+    .update-preview-modal .btn-read-more:not(.loading):hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    .update-preview-modal .btn-read-more.loading {
+        position: relative;
+        color: transparent;
+    }
+    .update-preview-modal .btn-read-more.loading::after {
+        content: "";
+        position: absolute;
+        width: 1rem;
+        height: 1rem;
+        top: 50%;
+        left: 50%;
+        margin: -0.5rem 0 0 -0.5rem;
+        border: 2px solid #fff;
+        border-right-color: transparent;
+        border-radius: 50%;
+        animation: spin 0.75s linear infinite;
+    }
+    @keyframes spin {
+        100% { transform: rotate(360deg); }
+    }
 </style>
 {% endblock %}
 
@@ -132,4 +202,84 @@
 <div class="container mt-4">
     {% block updates_content %}{% endblock %}
 </div>
+
+<!-- Update Preview Modal -->
+<div class="modal fade update-preview-modal" id="updatePreviewModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="description"></div>
+                <div class="meta-info">
+                    <div class="meta-item date">
+                        <span class="meta-label">Published:</span>
+                        <span class="meta-value"></span>
+                    </div>
+                    <div class="meta-item provider">
+                        <span class="meta-label">Provider:</span>
+                        <span class="meta-value"></span>
+                    </div>
+                    <div class="meta-item categories">
+                        <span class="meta-label">Categories:</span>
+                        <span class="meta-value"></span>
+                    </div>
+                    <div class="meta-item types">
+                        <span class="meta-label">Update Type:</span>
+                        <span class="meta-value"></span>
+                    </div>
+                </div>
+                <a href="#" class="btn btn-primary btn-read-more" target="_blank">
+                    Read Full Update
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const modal = document.getElementById('updatePreviewModal');
+    const previewModal = new bootstrap.Modal(modal);
+    
+    // Handle preview button clicks
+    document.querySelectorAll('.btn-preview-update').forEach(button => {
+        button.addEventListener('click', function(e) {
+            e.preventDefault();
+            const data = this.dataset;
+            
+            // Update modal content
+            modal.querySelector('.modal-title').textContent = data.title;
+            modal.querySelector('.description').textContent = data.description;
+            modal.querySelector('.date .meta-value').textContent = data.date;
+            modal.querySelector('.provider .meta-value').textContent = data.provider;
+            
+            // Update categories
+            const categories = data.categories ? JSON.parse(data.categories) : [];
+            modal.querySelector('.categories .meta-value').textContent = categories.join(', ') || 'None';
+            
+            // Update types
+            const types = data.types ? JSON.parse(data.types) : [];
+            modal.querySelector('.types .meta-value').textContent = types.join(', ') || 'None';
+            
+            // Update read more button
+            const readMoreBtn = modal.querySelector('.btn-read-more');
+            readMoreBtn.href = data.url;
+            
+            // Add click handler for the read more button
+            readMoreBtn.addEventListener('click', function() {
+                this.classList.add('loading');
+                setTimeout(() => this.classList.remove('loading'), 500);
+            });
+            
+            previewModal.show();
+        });
+    });
+});
+</script>
 {% endblock %}
