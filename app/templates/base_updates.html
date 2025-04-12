@@ -19,174 +19,98 @@
     }
 
     /* Update Cards */
-    .update-card {
+    .list-group-item {
         margin-bottom: 1rem;
         border: 1px solid #e0e0e0;
         border-radius: 8px;
         box-shadow: 0 2px 4px rgba(0,0,0,0.05);
         transition: transform 0.2s ease;
+        padding: 1.25rem;
     }
-    .update-card:hover {
+    .list-group-item:hover {
         transform: translateY(-2px);
         box-shadow: 0 4px 8px rgba(0,0,0,0.1);
     }
-    .update-card .card-title {
-        font-size: 1.1em;
+    .list-group-item h5 {
+        font-size: 1.1rem;
+        color: #323130;
         margin-bottom: 0.75rem;
-        color: #323130;
+        line-height: 1.4;
     }
-    .update-card .card-text {
+    .list-group-item .text-muted {
+        font-size: 0.875rem;
+    }
+    .list-group-item .description {
         color: #605E5C;
-        font-size: 0.95em;
+        font-size: 0.95rem;
+        line-height: 1.5;
+        margin-bottom: 1rem;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-height: 3em;
     }
-
-    /* Tags */
-    .meta-tags {
-        margin-top: 1rem;
-    }
-    .tag-section {
-        margin-bottom: 0.5rem;
-    }
-    .tag-section-title {
-        font-size: 0.8em;
-        color: #605E5C;
-        margin-bottom: 0.25rem;
-    }
-    .tags-container {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.5rem;
-    }
-    .tag-list {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.5rem;
-    }
-    .tag-list-item {
-        font-size: 0.8em;
-        padding: 0.2em 0.6em;
-        background-color: #F3F2F1;
-        border-radius: 12px;
-        color: #323130;
-    }
-
-    /* Filter Section */
-    .filter-section {
-        display: flex;
-        gap: 1rem;
-        margin-bottom: 1.5rem;
-        flex-wrap: wrap;
-    }
-    .filter-group .btn {
-        border: 1px solid #E1DFDD;
-        background: white;
-        color: #323130;
-        font-size: 0.9em;
-        padding: 0.5rem 1rem;
-    }
-    .filter-count {
-        background: #0078D4;
-        color: white;
-        padding: 0.2em 0.5em;
-        border-radius: 10px;
-        margin-left: 0.5rem;
-        font-size: 0.8em;
-    }
-    .filter-dropdown {
-        padding: 0.5rem;
-        max-height: 300px;
-        overflow-y: auto;
-    }
-    .filter-option {
+    .list-group-item .actions {
         display: flex;
         align-items: center;
-        gap: 0.5rem;
-        padding: 0.5rem;
-        margin: 0;
-        cursor: pointer;
+        gap: 1rem;
     }
-    .filter-option:hover {
-        background-color: #F3F2F1;
+    .list-group-item .read-more {
+        font-size: 0.875rem;
+        text-decoration: none;
     }
-    .filter-checkbox {
-        margin-right: 0.5rem;
-    }
-    .dropdown-header {
-        font-weight: 600;
-        color: #323130;
-        padding: 0.5rem;
+    .list-group-item .read-more:hover {
+        text-decoration: underline;
     }
 
-    /* Update Preview Modal */
-    .update-preview-modal .modal-header {
-        border-bottom: none;
-        padding-bottom: 0;
-    }
-    .update-preview-modal .modal-title {
-        font-size: 1.25rem;
-        color: #323130;
-        font-weight: 500;
-    }
-    .update-preview-modal .modal-body {
-        padding-top: 0.5rem;
-    }
-    .update-preview-modal .description {
-        color: #605E5C;
-        font-size: 1rem;
-        line-height: 1.5;
-        margin-bottom: 1.5rem;
-    }
-    .update-preview-modal .meta-info {
-        display: flex;
-        flex-direction: column;
-        gap: 0.75rem;
-        margin-bottom: 1.5rem;
-    }
-    .update-preview-modal .meta-item {
-        display: flex;
-        align-items: flex-start;
+    /* Preview Button */
+    .btn-preview {
+        padding: 0.375rem 0.75rem;
+        font-size: 0.875rem;
+        border-radius: 4px;
+        display: inline-flex;
+        align-items: center;
         gap: 0.5rem;
+        border: none;
     }
-    .update-preview-modal .meta-label {
-        font-size: 0.9rem;
-        color: #605E5C;
-        min-width: 100px;
+    .btn-preview.aws {
+        background-color: #FF9900;
+        color: #232F3E;
     }
-    .update-preview-modal .meta-value {
-        font-size: 0.9rem;
-        color: #323130;
+    .btn-preview.azure {
+        background-color: #0078D4;
+        color: white;
     }
-    .update-preview-modal .btn-read-more {
-        width: 100%;
-        padding: 0.75rem;
-        font-weight: 500;
-        transition: all 0.2s ease;
+    .btn-preview:hover {
+        opacity: 0.9;
     }
-    .update-preview-modal .btn-read-more:not(.loading):hover {
-        transform: translateY(-1px);
-        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    .btn-preview i {
+        font-size: 0.875rem;
     }
-    .update-preview-modal .btn-read-more.loading {
-        position: relative;
-        color: transparent;
+
+    /* Pagination */
+    .pagination {
+        margin-top: 2rem;
     }
-    .update-preview-modal .btn-read-more.loading::after {
-        content: "";
-        position: absolute;
-        width: 1rem;
-        height: 1rem;
-        top: 50%;
-        left: 50%;
-        margin: -0.5rem 0 0 -0.5rem;
-        border: 2px solid #fff;
-        border-right-color: transparent;
-        border-radius: 50%;
-        animation: spin 0.75s linear infinite;
+    .pagination .page-item.active .page-link {
+        background-color: var(--provider-color);
+        border-color: var(--provider-color);
+        color: white;
     }
-    @keyframes spin {
-        100% { transform: rotate(360deg); }
+    .pagination .page-link {
+        color: var(--provider-color);
+    }
+    .pagination .page-link:hover {
+        background-color: var(--provider-hover);
     }
 </style>
+<script>
+    document.documentElement.style.setProperty('--provider-color', '{{ "#FF9900" if provider == "aws" else "#0078D4" }}');
+    document.documentElement.style.setProperty('--provider-hover', '{{ "#FFF5E6" if provider == "aws" else "#E5F1F9" }}');
+</script>
 {% endblock %}
 
 {% block content %}
@@ -200,19 +124,82 @@
 </div>
 
 <div class="container mt-4">
-    {% block updates_content %}{% endblock %}
+    <h1 class="mb-4">
+        {% if provider == 'aws' %}
+        <i class="fab fa-aws me-2"></i>AWS Updates
+        {% else %}
+        <i class="fab fa-microsoft me-2"></i>Azure Updates
+        {% endif %}
+    </h1>
+
+    <div class="list-group">
+        {% for update in updates %}
+        <div class="list-group-item">
+            <div class="d-flex w-100 justify-content-between mb-2">
+                <h5 class="mb-0">{{ update.title }}</h5>
+                <small class="text-muted">{{ update.published_date.strftime('%b %d, %Y') }}</small>
+            </div>
+            <p class="description">{{ update.description }}</p>
+            <div class="actions">
+                <button class="btn btn-preview {{ provider }}" data-bs-toggle="modal" data-bs-target="#updatePreviewModal"
+                    data-title="{{ update.title }}"
+                    data-description="{{ update.description }}"
+                    data-date="{{ update.published_date.strftime('%b %d, %Y') }}"
+                    data-provider="{{ provider|title }}"
+                    data-categories="{{ update.categories|tojson }}"
+                    data-types="{{ update.update_types|tojson }}"
+                    data-url="{{ update.url }}">
+                    <i class="fas fa-eye"></i>
+                    Preview
+                </button>
+                <a href="{{ update.url }}" target="_blank" class="read-more text-primary">Read more</a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Pagination -->
+    <nav class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if page > 1 %}
+            <li class="page-item">
+                <a class="page-link" href="{{ url_for(request.endpoint, page=page-1) }}">Previous</a>
+            </li>
+            {% else %}
+            <li class="page-item disabled">
+                <span class="page-link">Previous</span>
+            </li>
+            {% endif %}
+
+            {% for p in range(max(1, page-2), min(total_pages+1, page+3)) %}
+            <li class="page-item {{ 'active' if p == page else '' }}">
+                <a class="page-link" href="{{ url_for(request.endpoint, page=p) }}">{{ p }}</a>
+            </li>
+            {% endfor %}
+
+            {% if page < total_pages %}
+            <li class="page-item">
+                <a class="page-link" href="{{ url_for(request.endpoint, page=page+1) }}">Next</a>
+            </li>
+            {% else %}
+            <li class="page-item disabled">
+                <span class="page-link">Next</span>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
 </div>
 
 <!-- Update Preview Modal -->
 <div class="modal fade update-preview-modal" id="updatePreviewModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
+    <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title"></h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <div class="description"></div>
+                <p class="description"></p>
                 <div class="meta-info">
                     <div class="meta-item date">
                         <span class="meta-label">Published:</span>
@@ -227,13 +214,11 @@
                         <span class="meta-value"></span>
                     </div>
                     <div class="meta-item types">
-                        <span class="meta-label">Update Type:</span>
+                        <span class="meta-label">Types:</span>
                         <span class="meta-value"></span>
                     </div>
                 </div>
-                <a href="#" class="btn btn-primary btn-read-more" target="_blank">
-                    Read Full Update
-                </a>
+                <a href="#" class="btn btn-primary btn-read-more" target="_blank">Read Full Update</a>
             </div>
         </div>
     </div>
@@ -248,7 +233,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const previewModal = new bootstrap.Modal(modal);
     
     // Handle preview button clicks
-    document.querySelectorAll('.btn-preview-update').forEach(button => {
+    document.querySelectorAll('.btn-preview').forEach(button => {
         button.addEventListener('click', function(e) {
             e.preventDefault();
             const data = this.dataset;

@@ -4,238 +4,163 @@
 <div class="container mt-4">
     <h1 class="mb-4">Cloud Updates Insights</h1>
 
-    <div class="row g-4 mb-4">
-        <!-- AWS Stats -->
-        <div class="col-md-6">
-            <div class="card h-100">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h5 class="card-title mb-0">AWS Updates</h5>
-                        <span class="badge provider-badge aws-badge">AWS</span>
-                    </div>
-                    <p class="card-text">Total Updates: {{ total_aws }}</p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Azure Stats -->
-        <div class="col-md-6">
-            <div class="card h-100">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h5 class="card-title mb-0">Azure Updates</h5>
-                        <span class="badge provider-badge azure-badge">Azure</span>
-                    </div>
-                    <p class="card-text">Total Updates: {{ total_azure }}</p>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Weekly Trend Chart -->
+    <!-- Update Trend Chart -->
     <div class="card mb-4">
+        <div class="card-header bg-dark text-white">
+            <h2 class="h5 mb-0">
+                <i class="fas fa-chart-line me-2"></i>Update Trends
+            </h2>
+        </div>
         <div class="card-body">
-            <h5 class="card-title">Weekly Update Trends</h5>
-            <div style="height: 400px;">
-                <canvas id="trendChart"></canvas>
-            </div>
+            <canvas id="trendChart"></canvas>
         </div>
     </div>
 
-    <div class="row g-4 mb-4">
-        <!-- AWS Distribution Chart -->
+    <!-- Product/Category Distribution -->
+    {% if latest_insight %}
+    <div class="row">
+        <!-- AWS Products -->
         <div class="col-md-6">
-            <div class="card h-100">
+            <div class="card mb-4">
+                <div class="card-header bg-dark text-white">
+                    <h2 class="h5 mb-0">
+                        <i class="fab fa-aws me-2"></i>Top AWS Products
+                    </h2>
+                </div>
                 <div class="card-body">
-                    <h5 class="card-title">AWS Updates by Product</h5>
-                    <div style="height: 300px;">
-                        <canvas id="awsChart"></canvas>
-                    </div>
+                    <canvas id="awsProductsChart"></canvas>
                 </div>
             </div>
         </div>
 
-        <!-- Azure Distribution Chart -->
+        <!-- Azure Categories -->
         <div class="col-md-6">
-            <div class="card h-100">
+            <div class="card mb-4">
+                <div class="card-header bg-dark text-white">
+                    <h2 class="h5 mb-0">
+                        <i class="fab fa-microsoft me-2"></i>Top Azure Categories
+                    </h2>
+                </div>
                 <div class="card-body">
-                    <h5 class="card-title">Azure Updates by Category</h5>
-                    <div style="height: 300px;">
-                        <canvas id="azureChart"></canvas>
-                    </div>
+                    <canvas id="azureCategoriesChart"></canvas>
                 </div>
             </div>
         </div>
     </div>
-
-    <!-- Weekly Updates Table -->
-    <div class="card">
-        <div class="card-body">
-            <h5 class="card-title">Weekly Updates History</h5>
-            <div class="table-responsive">
-                <table class="table">
-                    <thead>
-                        <tr>
-                            <th>Week Starting</th>
-                            <th>AWS Updates</th>
-                            <th>Azure Updates</th>
-                            <th>Total Updates</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for insight in insights|reverse %}
-                        <tr>
-                            <td>{{ insight.week_start.strftime('%Y-%m-%d') }}</td>
-                            <td>{{ insight.aws_updates }}</td>
-                            <td>{{ insight.azure_updates }}</td>
-                            <td>{{ insight.aws_updates + insight.azure_updates }}</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
+    {% endif %}
 </div>
-
-<style>
-.card {
-    border: none;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
-}
-
-.card-title {
-    color: #333;
-    font-weight: 500;
-}
-
-.provider-badge {
-    font-size: 0.8rem;
-    padding: 0.4em 0.8em;
-}
-
-.aws-badge {
-    background-color: #FF9900;
-    color: #232F3E;
-}
-
-.azure-badge {
-    background-color: #008AD7;
-    color: white;
-}
-</style>
 {% endblock %}
 
 {% block scripts %}
-{{ super() }}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Weekly Trend Chart
-    const trendCtx = document.getElementById('trendChart').getContext('2d');
-    new Chart(trendCtx, {
+    const chartData = {
+        weeks: JSON.parse('{{ weeks | tojson | safe }}'),
+        awsCounts: JSON.parse('{{ aws_counts | tojson | safe }}'),
+        azureCounts: JSON.parse('{{ azure_counts | tojson | safe }}')
+    };
+
+    const trendConfig = {
         type: 'line',
-        data: {{ trend_chart_data|tojson|safe }},
+        data: {
+            labels: chartData.weeks,
+            datasets: [
+                {
+                    label: 'AWS Updates',
+                    data: chartData.awsCounts,
+                    borderColor: '#FF9900',
+                    backgroundColor: 'rgba(255, 153, 0, 0.1)',
+                    fill: true
+                },
+                {
+                    label: 'Azure Updates',
+                    data: chartData.azureCounts,
+                    borderColor: '#008AD7',
+                    backgroundColor: 'rgba(0, 138, 215, 0.1)',
+                    fill: true
+                }
+            ]
+        },
         options: {
             responsive: true,
-            maintainAspectRatio: false,
-            interaction: {
-                intersect: false,
-                mode: 'index'
-            },
             plugins: {
-                legend: {
-                    position: 'top'
-                },
-                tooltip: {
-                    mode: 'index',
-                    intersect: false
+                legend: { position: 'top' },
+                title: {
+                    display: true,
+                    text: 'Weekly Update Trends'
                 }
             },
             scales: {
-                x: {
-                    grid: {
-                        display: false
-                    }
-                },
                 y: {
                     beginAtZero: true,
-                    ticks: {
-                        precision: 0
-                    },
-                    grid: {
-                        color: 'rgba(0,0,0,0.1)'
-                    }
+                    ticks: { stepSize: 1 }
                 }
             }
         }
-    });
+    };
 
-    // AWS Distribution Chart
-    const awsCtx = document.getElementById('awsChart').getContext('2d');
-    new Chart(awsCtx, {
-        type: 'bar',
-        data: {{ aws_chart_data|tojson|safe }},
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            indexAxis: 'y',
-            plugins: {
-                legend: {
-                    display: false
-                }
-            },
-            scales: {
-                x: {
-                    beginAtZero: true,
-                    ticks: {
-                        precision: 0
-                    },
-                    grid: {
-                        display: false
-                    }
-                },
-                y: {
-                    grid: {
-                        display: false
-                    }
-                }
-            }
-        }
-    });
+    new Chart(document.getElementById('trendChart').getContext('2d'), trendConfig);
 
-    // Azure Distribution Chart
-    const azureCtx = document.getElementById('azureChart').getContext('2d');
-    new Chart(azureCtx, {
+    {% if latest_insight %}
+    const productData = {
+        aws: {
+            labels: JSON.parse('{{ latest_insight.aws_top_products | map(attribute="name") | list | tojson | safe }}'),
+            data: JSON.parse('{{ latest_insight.aws_top_products | map(attribute="count") | list | tojson | safe }}')
+        },
+        azure: {
+            labels: JSON.parse('{{ latest_insight.azure_top_categories | map(attribute="name") | list | tojson | safe }}'),
+            data: JSON.parse('{{ latest_insight.azure_top_categories | map(attribute="count") | list | tojson | safe }}')
+        }
+    };
+
+    const awsConfig = {
         type: 'bar',
-        data: {{ azure_chart_data|tojson|safe }},
+        data: {
+            labels: productData.aws.labels,
+            datasets: [{
+                label: 'Updates',
+                data: productData.aws.data,
+                backgroundColor: ['#FF9900', '#FFB13D', '#FFC266', '#FFD699', '#FFE4B3']
+            }]
+        },
         options: {
             responsive: true,
-            maintainAspectRatio: false,
-            indexAxis: 'y',
-            plugins: {
-                legend: {
-                    display: false
-                }
-            },
+            plugins: { legend: { display: false } },
             scales: {
-                x: {
-                    beginAtZero: true,
-                    ticks: {
-                        precision: 0
-                    },
-                    grid: {
-                        display: false
-                    }
-                },
                 y: {
-                    grid: {
-                        display: false
-                    }
+                    beginAtZero: true,
+                    ticks: { stepSize: 1 }
                 }
             }
         }
-    });
+    };
+
+    const azureConfig = {
+        type: 'bar',
+        data: {
+            labels: productData.azure.labels,
+            datasets: [{
+                label: 'Updates',
+                data: productData.azure.data,
+                backgroundColor: ['#008AD7', '#00A2ED', '#00B7FF', '#33C6FF', '#66D5FF']
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: { stepSize: 1 }
+                }
+            }
+        }
+    };
+
+    new Chart(document.getElementById('awsProductsChart').getContext('2d'), awsConfig);
+    new Chart(document.getElementById('azureCategoriesChart').getContext('2d'), azureConfig);
+    {% endif %}
 });
 </script>
 {% endblock %}

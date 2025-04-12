@@ -72,13 +72,31 @@ class Update(db.Model):
         return f'<Update {self.provider}:{self.title}>'
 
 class WeeklyInsight(db.Model):
+    """Weekly insights from updates."""
+    __tablename__ = 'weekly_insights'
+
     id = db.Column(db.Integer, primary_key=True)
     week_start = db.Column(db.DateTime, nullable=False)
     week_end = db.Column(db.DateTime, nullable=False)
     aws_updates = db.Column(db.Integer, default=0)
     azure_updates = db.Column(db.Integer, default=0)
-    summary = db.Column(db.Text)
+    aws_top_products = db.Column(db.JSON)  # Store top 5 AWS products and their counts
+    azure_top_categories = db.Column(db.JSON)  # Store top 5 Azure categories and their counts
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def __repr__(self):
+        return f'<WeeklyInsight {self.week_start} - {self.week_end}>'
+
+class WeeklyTheme(db.Model):
+    """Model for weekly themes of cloud updates."""
+    id = db.Column(db.Integer, primary_key=True)
+    week_start = db.Column(db.DateTime, nullable=False)
+    provider = db.Column(db.String(50), nullable=False)  # 'aws' or 'azure'
+    theme_name = db.Column(db.String(200), nullable=False)
+    description = db.Column(db.Text)
+    relevance_score = db.Column(db.Float)  # How relevant/important this theme is (0-1)
+    update_count = db.Column(db.Integer)  # Number of updates in this theme
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     def __repr__(self):
-        return f'<WeeklyInsight {self.week_start} to {self.week_end}>'
+        return f'<WeeklyTheme {self.provider} - {self.theme_name} ({self.week_start.strftime("%Y-%m-%d")})>'

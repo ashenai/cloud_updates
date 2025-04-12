@@ -22,50 +22,35 @@ to ensure its accuracy and functionality, users should:
 4. Not rely on this code for critical systems without proper validation
 """
 
-"""
-Flask application factory.
-"""
+"""Flask application factory."""
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
-import os
-from datetime import datetime
+from config import Config
 
 # Initialize extensions
 db = SQLAlchemy()
 migrate = Migrate()
 
-def create_app():
+def create_app(config_class=Config):
+    """Create and configure the Flask application."""
     app = Flask(__name__)
-    
-    # Get the base directory
-    base_dir = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
-    
-    # Configuration
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(base_dir, 'instance', 'cloud_updates.db')
-    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-    app.config['SECRET_KEY'] = 'dev-key-please-change-in-production'
-    app.config['UPDATES_PER_PAGE'] = 20
-    app.config['MAX_SEARCH_RESULTS'] = 100
-    app.config['UPDATE_RETENTION_DAYS'] = 90
-    
-    # Initialize extensions
+    app.config.from_object(config_class)
+
+    # Initialize extensions with app
     db.init_app(app)
     migrate.init_app(app, db)
-    
-    # Import routes here to avoid circular imports
+
+    # Register blueprints
     from app.routes import init_routes
     init_routes(app)
-    
-    # Create database tables
+
+    # Create tables if they don't exist
     with app.app_context():
-        db.create_all()
-        # Print message only on first creation
-        if not os.path.exists(os.path.join(base_dir, 'instance', 'cloud_updates.db')):
+        try:
+            db.create_all()
             print("Database tables created successfully!")
-    
-    # Register CLI commands
-    from app.cli import clean_cli
-    app.cli.add_command(clean_cli)
+        except Exception as e:
+            print(f"Error creating database tables: {e}")
     
     return app

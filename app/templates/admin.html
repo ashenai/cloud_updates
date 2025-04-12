@@ -4,63 +4,129 @@
 
 {% block content %}
 <div class="container mt-4">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1>Admin Dashboard</h1>
-        <div>
-            <form action="{{ url_for('admin_refresh') }}" method="post" class="d-inline">
-                <button type="submit" class="btn btn-primary me-2">Fetch New Updates</button>
-            </form>
-            <form action="{{ url_for('admin_generate_insights') }}" method="post" class="d-inline">
-                <button type="submit" class="btn btn-outline-secondary me-2">Generate Insights</button>
-            </form>
-            <form action="{{ url_for('admin_cleanup') }}" method="post" class="d-inline">
-                <button type="submit" class="btn btn-outline-danger">Clean Duplicates</button>
+    <h1 class="mb-4">Admin Dashboard</h1>
+
+    <!-- Theme Generation Widget -->
+    <div class="card mb-4">
+        <div class="card-header bg-dark text-white">
+            <h2 class="h5 mb-0">
+                <i class="fas fa-lightbulb me-2"></i>Generate Themes
+            </h2>
+        </div>
+        <div class="card-body">
+            <form action="{{ url_for('admin_generate_themes') }}" method="post">
+                <div class="mb-3">
+                    <label for="week" class="form-label">Select Week</label>
+                    <select name="week" id="week" class="form-select" required>
+                        {% for week in available_weeks %}
+                        <option value="{{ week.isoformat() }}" {% if week == selected_week %}selected{% endif %}>
+                            Week of {{ week.strftime('%b %d, %Y') }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-sync-alt me-2"></i>Generate Themes
+                </button>
             </form>
         </div>
     </div>
 
-    <div class="row g-4">
-        <!-- AWS Stats -->
-        <div class="col-md-6">
-            <div class="card h-100">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h5 class="card-title mb-0">AWS Updates</h5>
-                        <span class="badge provider-badge aws-badge">AWS</span>
-                    </div>
-                    <p class="card-text">Total Updates: {{ total_aws }}</p>
-                    {% if latest_aws %}
-                    <p class="card-text">
-                        Latest Update: <br>
-                        <small class="text-muted">{{ latest_aws.title }}</small><br>
-                        <small class="text-muted">{{ latest_aws.published_date.strftime('%Y-%m-%d %H:%M UTC') }}</small>
-                    </p>
-                    {% endif %}
-                </div>
-            </div>
+    <!-- Update Scraping Widget -->
+    <div class="card mb-4">
+        <div class="card-header bg-dark text-white">
+            <h2 class="h5 mb-0">
+                <i class="fas fa-cloud-download-alt me-2"></i>Update Sources
+            </h2>
         </div>
-
-        <!-- Azure Stats -->
-        <div class="col-md-6">
-            <div class="card h-100">
-                <div class="card-body">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h5 class="card-title mb-0">Azure Updates</h5>
-                        <span class="badge provider-badge azure-badge">Azure</span>
+        <div class="card-body">
+            <div class="row">
+                <!-- AWS Updates -->
+                <div class="col-md-6">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h3 class="h6 mb-3">
+                                <i class="fab fa-aws me-2"></i>AWS Updates
+                            </h3>
+                            <p class="card-text">Total Updates: {{ total_aws }}</p>
+                            {% if latest_aws %}
+                            <p class="card-text">
+                                Latest Update:<br>
+                                <small class="text-muted">{{ latest_aws.title }}</small><br>
+                                <small class="text-muted">{{ latest_aws.published_date.strftime('%b %d, %Y') }}</small>
+                            </p>
+                            {% endif %}
+                            <form action="{{ url_for('admin_scrape_aws_updates') }}" method="post">
+                                <button type="submit" class="btn btn-warning">
+                                    <i class="fas fa-sync me-2"></i>Fetch AWS Updates
+                                </button>
+                            </form>
+                        </div>
                     </div>
-                    <p class="card-text">Total Updates: {{ total_azure }}</p>
-                    {% if latest_azure %}
-                    <p class="card-text">
-                        Latest Update: <br>
-                        <small class="text-muted">{{ latest_azure.title }}</small><br>
-                        <small class="text-muted">{{ latest_azure.published_date.strftime('%Y-%m-%d %H:%M UTC') }}</small>
-                    </p>
-                    {% endif %}
+                </div>
+
+                <!-- Azure Updates -->
+                <div class="col-md-6">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h3 class="h6 mb-3">
+                                <i class="fab fa-microsoft me-2"></i>Azure Updates
+                            </h3>
+                            <p class="card-text">Total Updates: {{ total_azure }}</p>
+                            {% if latest_azure %}
+                            <p class="card-text">
+                                Latest Update:<br>
+                                <small class="text-muted">{{ latest_azure.title }}</small><br>
+                                <small class="text-muted">{{ latest_azure.published_date.strftime('%b %d, %Y') }}</small>
+                            </p>
+                            {% endif %}
+                            <form action="{{ url_for('admin_scrape_azure_updates') }}" method="post">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-sync me-2"></i>Fetch Azure Updates
+                                </button>
+                            </form>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
+
+    <!-- Actions -->
+    <div class="card mb-4">
+        <div class="card-header bg-dark text-white">
+            <h2 class="h5 mb-0">
+                <i class="fas fa-cogs me-2"></i>Maintenance
+            </h2>
+        </div>
+        <div class="card-body">
+            <div class="d-flex gap-2">
+                <form action="{{ url_for('admin_cleanup') }}" method="post">
+                    <button type="submit" class="btn btn-outline-danger">
+                        <i class="fas fa-broom me-2"></i>Clean Duplicates
+                    </button>
+                </form>
+                <form action="{{ url_for('admin_generate_insights') }}" method="post">
+                    <button type="submit" class="btn btn-outline-primary">
+                        <i class="fas fa-chart-bar me-2"></i>Generate Insights
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
 </div>
+{% endblock %}
 
 <style>
 .card {
@@ -92,4 +158,3 @@
     margin-bottom: 2rem;
 }
 </style>
-{% endblock %}

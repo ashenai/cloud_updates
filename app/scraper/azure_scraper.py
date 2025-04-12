@@ -22,151 +22,100 @@ to ensure its accuracy and functionality, users should:
 4. Not rely on this code for critical systems without proper validation
 """
 
-from datetime import datetime
-from typing import List, Tuple
-import feedparser
+"""Azure updates scraper module."""
+import requests
 from bs4 import BeautifulSoup
+from datetime import datetime
 import re
 from app.models import Update
-from time import mktime
-from email.utils import parsedate_to_datetime
+from app import db
 
 class AzureScraper:
+    """Scraper for Azure updates RSS feed."""
+    
     def __init__(self):
-        self.feed_url = "https://www.microsoft.com/releasecommunications/api/v2/azure/rss"
+        self.feed_url = "https://azurecomcdn.azureedge.net/en-us/updates/feed/"
+    
+    def get_update_date(self, entry_dict):
+        """Get the most recent update date from entry."""
+        # Try to get the a10:updated date first
+        updated = entry_dict.get('updated')
+        if updated:
+            try:
+                return datetime.strptime(updated, '%Y-%m-%dT%H:%M:%SZ')
+            except ValueError:
+                pass
         
-        # Define known update types that appear in category tags
-        self.update_type_categories = {
-            'Compliance',
-            'Features',
-            'Gallery',
-            'Management',
-            'Microsoft Build',
-            'Microsoft Ignite',
-            'Microsoft Connect',
-            'Microsoft Inspire',
-            'MicrosoftBuild',
-            'Open Source',
-            'Operating System',
-            'Pricing & Offerings',
-            'Regions & Datacenters',
-            'Retirements',
-            'SDK and Tools',
-            'Security',
-            'Services'
-        }
-
-    def clean_description(self, description: str) -> str:
-        """Clean HTML tags from description."""
-        if not description:
-            return ""
-        # Parse HTML and get text
-        soup = BeautifulSoup(description, 'html.parser')
-        return soup.get_text().strip()
-
-    def extract_metadata(self, entry) -> Tuple[List[str], List[str]]:
-        """Extract categories and update types from entry metadata."""
-        categories = []
-        update_types = []
-        
-        if hasattr(entry, 'tags'):
-            for tag in entry.tags:
-                tag_term = tag.get('term', '').strip()
-                # Skip empty tags
-                if not tag_term:
-                    continue
-                # If the tag is a known update type, add it to update types
-                if tag_term in self.update_type_categories:
-                    update_types.append(tag_term)
-                else:
-                    # Otherwise, it's a category
-                    categories.append(tag_term)
-        
-        # Ensure we have at least one category and update type
-        if not categories:
-            categories = ['General']
-        if not update_types:
-            update_types = ['Features']
-        
-        return categories, update_types
-
-    def get_update_date(self, entry, title: str) -> datetime:
-        """
-        Get the most recent update date from the entry.
-        Prefers a10:updated if available, falls back to pubDate.
-        Returns None if no valid date found.
-        """
-        # First try to get the a10:updated date
-        try:
-            if hasattr(entry, 'updated'):
-                return parsedate_to_datetime(entry.updated)
-        except Exception as e:
-            print(f"Warning: Could not parse updated date for {title}: {e}")
-        
-        # Fall back to pubDate
-        try:
-            if hasattr(entry, 'pubDate'):
-                return parsedate_to_datetime(entry.pubDate)
-        except Exception as e:
-            print(f"Warning: Could not parse pubDate for {title}: {e}")
+        # Fall back to published date
+        published = entry_dict.get('published')
+        if published:
+            try:
+                return datetime.strptime(published, '%Y-%m-%dT%H:%M:%SZ')
+            except ValueError:
+                pass
         
         return None
 
-    def scrape(self) -> List[Update]:
+    def clean_html(self, html_content):
+        """Clean HTML content using BeautifulSoup."""
+        if not html_content:
+            return ""
+        soup = BeautifulSoup(html_content, 'html.parser')
+        return soup.get_text(separator=' ', strip=True)
+
+    def parse_entry(self, entry):
+        """Parse a single RSS entry into an Update object."""
+        # Extract basic fields
+        title = entry.get('title', '').strip()
+        link = entry.get('link', '').strip()
+        description = self.clean_html(entry.get('description', ''))
+        published_date = self.get_update_date(entry)
+        
+        if not all([title, link, published_date]):
+            return None
+        
+        # Create Update object
+        update = Update(
+            title=title,
+            link=link,
+            description=description,
+            published_date=published_date,
+            provider='azure'
+        )
+        
+        return update
+
+    def scrape(self):
         """Scrape Azure updates from RSS feed."""
         try:
-            print(f"Fetching Azure feed from {self.feed_url}")
-            feed = feedparser.parse(self.feed_url)
+            # Fetch RSS feed
+            response = requests.get(self.feed_url)
+            response.raise_for_status()
             
-            if hasattr(feed, 'status') and feed.status != 200:
-                print(f"Error: Azure feed returned status {feed.status}")
-                return []
-                
-            if not hasattr(feed, 'entries'):
-                print("Error: Azure feed has no entries")
-                return []
-                
-            print(f"Found {len(feed.entries)} Azure updates")
+            # Parse XML with BeautifulSoup
+            soup = BeautifulSoup(response.content, 'xml')
+            entries = []
             
+            # Extract entries
+            for item in soup.find_all('item'):
+                entry = {
+                    'title': item.title.text if item.title else '',
+                    'link': item.link.text if item.link else '',
+                    'description': item.description.text if item.description else '',
+                    'published': item.pubDate.text if item.pubDate else None,
+                    'updated': item.find('updated').text if item.find('updated') else None
+                }
+                entries.append(entry)
+            
+            # Process entries
             updates = []
-            for entry in feed.entries:
-                try:
-                    # Get description from content or summary
-                    description = ''
-                    if hasattr(entry, 'content'):
-                        description = entry.content[0].value
-                    elif hasattr(entry, 'summary'):
-                        description = entry.summary
-                    
-                    title = entry.get('title', 'No title')
-                    
-                    # Get the most recent update date
-                    published_date = self.get_update_date(entry, title)
-                    if published_date is None:
-                        print(f"Warning: No valid date found for Azure entry: {title}")
-                        continue
-                    
-                    # Extract metadata
-                    categories, update_types = self.extract_metadata(entry)
-                    
-                    # Create update object
-                    update = Update(
-                        provider='azure',
-                        title=title,
-                        description=self.clean_description(description),
-                        url=entry.get('link', ''),
-                        published_date=published_date,
-                        categories=categories,
-                        update_types=update_types
-                    )
+            for entry in entries:
+                update = self.parse_entry(entry)
+                if update:
                     updates.append(update)
-                except Exception as entry_error:
-                    print(f"Error processing Azure entry: {entry_error}")
-                    continue
             
-            print(f"Successfully processed {len(updates)} Azure updates")
             return updates
             
         except Exception as e:
-            print(f"Error scraping Azure updates: {e}")
+            print(f"Error scraping Azure updates: {str(e)}")
             return []

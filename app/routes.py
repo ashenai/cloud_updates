@@ -23,14 +23,14 @@ to ensure its accuracy and functionality, users should:
 """
 
 from datetime import datetime, timedelta
-from flask import render_template, redirect, url_for, flash, request, jsonify, current_app
-from sqlalchemy import func, desc, or_
-from app.models import Update, WeeklyInsight
-from app.scraper.aws_scraper import AWSScraper
-from app.scraper.azure_scraper import AzureScraper
-from app.scraper.aws_services import AWSServicesFetcher
+from flask import current_app, render_template, request, redirect, url_for, flash
+from sqlalchemy import func, extract
+from app.models import Update, WeeklyTheme, WeeklyInsight
 from app.rag.embeddings import UpdateSearch
 from app import db
+from app.utils.theme_analyzer import get_week_start, ThemeAnalyzer
+from app.utils.scraper import scrape_aws_updates, scrape_azure_updates
+from app.utils.cleaner import clean_all_updates, clean_aws_duplicates, clean_azure_duplicates
 
 # Initialize search system
 update_search = UpdateSearch()
@@ -60,222 +60,268 @@ def init_routes(app):
 
     @app.route('/')
     def index():
-        return render_template('index.html')
-
-    @app.route('/aws')
-    def aws_updates():
-        page = request.args.get('page', 1, type=int)
-        per_page = 10  # Number of updates per page
+        """Home page."""
+        # Get current week's themes
+        current_week = get_week_start(datetime.utcnow())
+        themes = WeeklyTheme.query.filter_by(week_start=current_week).all()
         
-        # Get filter parameters from query string
-        selected_products = request.args.getlist('products')
+        # Split themes by provider
+        aws_themes = [t for t in themes if t.provider == 'aws']
+        azure_themes = [t for t in themes if t.provider == 'azure']
         
-        # Start with base query
-        query = Update.query.filter_by(provider='aws')
-        
-        # Apply filters if they exist
-        if selected_products:
-            query = query.filter(Update.product_name.in_(selected_products))
-        
-        # Get total filtered count before pagination
-        total_filtered = query.count()
-        
-        # Apply sorting and pagination
-        pagination = query.order_by(Update.published_date.desc()).paginate(
-            page=page, per_page=per_page, error_out=False
+        return render_template(
+            'index.html',
+            aws_themes=aws_themes,
+            azure_themes=azure_themes,
+            themes=themes  # Used to check if any themes exist
         )
-        
-        aws_updates = pagination.items
-        
-        # Get all unique product names for filtering (from entire dataset)
-        aws_products = db.session.query(Update.product_name).filter(
-            Update.provider == 'aws',
-            Update.product_name.isnot(None)
-        ).distinct().all()
-        aws_products = sorted([p[0] for p in aws_products if p[0]])  # Flatten and remove empty
-        
-        return render_template('aws.html', 
-                             aws_updates=aws_updates,
-                             aws_products=aws_products,
-                             selected_products=selected_products,
-                             pagination=pagination,
-                             total_filtered=total_filtered)
 
-    @app.route('/azure')
-    def azure_updates():
-        page = request.args.get('page', 1, type=int)
-        per_page = 10  # Number of updates per page
+    @app.route('/themes')
+    def themes():
+        """Display weekly themes."""
+        # Get week parameter or default to current week
+        selected_week = request.args.get('week', None)
         
-        # Get filter parameters from query string
-        selected_categories = request.args.getlist('categories')
-        selected_types = request.args.getlist('types')
+        # Get all available weeks
+        available_weeks = db.session.query(WeeklyTheme.week_start.distinct()).order_by(WeeklyTheme.week_start.desc()).all()
+        available_weeks = [week[0] for week in available_weeks]
         
-        # Start with base query
-        query = Update.query.filter_by(provider='azure')
+        if not available_weeks:
+            flash('No themes available yet. Please generate themes first.', 'warning')
+            return redirect(url_for('index'))
         
-        # Apply filters if they exist
-        if selected_categories:
-            # Create conditions for each category
-            category_conditions = []
-            for category in selected_categories:
-                category_conditions.append(Update._categories.like(f'%{category}%'))
-            query = query.filter(or_(*category_conditions))
+        # If no week selected or invalid week, use most recent
+        if not selected_week or selected_week not in available_weeks:
+            selected_week = available_weeks[0]
+        
+        # Get themes for selected week
+        themes = WeeklyTheme.query.filter(WeeklyTheme.week_start == selected_week).order_by(
+            WeeklyTheme.provider,
+            WeeklyTheme.relevance_score.desc()
+        ).all()
+        
+        # Group themes by provider
+        aws_themes = [t for t in themes if t.provider == 'aws']
+        azure_themes = [t for t in themes if t.provider == 'azure']
+        
+        return render_template(
+            'themes.html',
+            aws_themes=aws_themes,
+            azure_themes=azure_themes,
+            selected_week=selected_week,
+            available_weeks=available_weeks
+        )
+
+    @app.route('/aws-updates')
+    @app.route('/aws-updates/page/<int:page>')
+    def aws_updates(page=1):
+        """Show AWS updates."""
+        per_page = 20
+        updates = Update.query.filter_by(provider='aws').order_by(Update.published_date.desc())
+        total = updates.count()
+        total_pages = (total + per_page - 1) // per_page
+        
+        updates = updates.paginate(page=page, per_page=per_page, error_out=False)
+        
+        return render_template(
+            'base_updates.html',
+            updates=updates.items,
+            provider='aws',
+            page=page,
+            total_pages=total_pages
+        )
+
+    @app.route('/azure-updates')
+    @app.route('/azure-updates/page/<int:page>')
+    def azure_updates(page=1):
+        """Show Azure updates."""
+        per_page = 20
+        updates = Update.query.filter_by(provider='azure').order_by(Update.published_date.desc())
+        total = updates.count()
+        total_pages = (total + per_page - 1) // per_page
+        
+        updates = updates.paginate(page=page, per_page=per_page, error_out=False)
+        
+        return render_template(
+            'base_updates.html',
+            updates=updates.items,
+            provider='azure',
+            page=page,
+            total_pages=total_pages
+        )
+
+    @app.route('/admin/generate_insights', methods=['POST'])
+    def admin_generate_insights():
+        """Generate insights from updates."""
+        try:
+            # Clear existing insights
+            WeeklyInsight.query.delete()
             
-        if selected_types:
-            # Create conditions for each type
-            type_conditions = []
-            for update_type in selected_types:
-                type_conditions.append(Update._update_types.like(f'%{update_type}%'))
-            query = query.filter(or_(*type_conditions))
+            # Find the earliest and latest update dates
+            earliest_update = Update.query.order_by(Update.published_date.asc()).first()
+            latest_update = Update.query.order_by(Update.published_date.desc()).first()
+            
+            if not earliest_update or not latest_update:
+                flash('No updates found to generate insights from.', 'error')
+                return redirect(url_for('admin'))
+            
+            # Start from the beginning of the week of the earliest update
+            start_date = get_week_start(earliest_update.published_date)
+            
+            # End at the end of the current week
+            end_date = get_week_start(datetime.utcnow()) + timedelta(days=7)
+            
+            # Define categories to ignore
+            ignored_categories = {'In preview', 'Launched', 'General availability', 'Generally available'}
+            
+            # Generate insights for each week
+            current_week = start_date
+            while current_week < end_date:
+                week_end = current_week + timedelta(days=7)
+                
+                # Get updates for this week
+                aws_updates = Update.query.filter(
+                    Update.provider == 'aws',
+                    Update.published_date >= current_week,
+                    Update.published_date < week_end
+                ).all()
+                
+                azure_updates = Update.query.filter(
+                    Update.provider == 'azure',
+                    Update.published_date >= current_week,
+                    Update.published_date < week_end
+                ).all()
+                
+                # Count updates
+                aws_count = len(aws_updates)
+                azure_count = len(azure_updates)
+                
+                if aws_count > 0 or azure_count > 0:
+                    # Get top AWS products
+                    aws_products = {}
+                    for update in aws_updates:
+                        if update.product_name:
+                            aws_products[update.product_name] = aws_products.get(update.product_name, 0) + 1
+                    
+                    aws_top_products = [
+                        {"name": name, "count": count}
+                        for name, count in sorted(aws_products.items(), key=lambda x: x[1], reverse=True)[:5]
+                    ]
+                    
+                    # Get top Azure categories
+                    azure_categories = {}
+                    for update in azure_updates:
+                        # For Azure, use the categories but ignore status categories
+                        categories = [cat for cat in update.categories if cat not in ignored_categories]
+                        for category in categories:
+                            azure_categories[category] = azure_categories.get(category, 0) + 1
+                    
+                    azure_top_categories = [
+                        {"name": name, "count": count}
+                        for name, count in sorted(azure_categories.items(), key=lambda x: x[1], reverse=True)[:5]
+                    ]
+                    
+                    # Create insight
+                    insight = WeeklyInsight(
+                        week_start=current_week,
+                        week_end=week_end,
+                        aws_updates=aws_count,
+                        azure_updates=azure_count,
+                        aws_top_products=aws_top_products,
+                        azure_top_categories=azure_top_categories
+                    )
+                    db.session.add(insight)
+                
+                current_week = week_end
+            
+            db.session.commit()
+            flash('Successfully generated insights.', 'success')
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error generating insights: {str(e)}', 'error')
         
-        # Get total filtered count before pagination
-        total_filtered = query.count()
-        
-        # Apply sorting and pagination
-        pagination = query.order_by(Update.published_date.desc()).paginate(
-            page=page, per_page=per_page, error_out=False
-        )
-        
-        azure_updates = pagination.items
-        
-        # Get all unique categories and types (from entire dataset)
-        all_updates = Update.query.filter_by(provider='azure').all()
-        azure_categories = set()
-        azure_update_types = set()
-        
-        for update in all_updates:
-            if update.categories:
-                azure_categories.update(update.categories)
-            if update.update_types:
-                azure_update_types.update(update.update_types)
-        
-        return render_template('azure.html', 
-                             azure_updates=azure_updates,
-                             azure_categories=sorted(azure_categories),
-                             azure_update_types=sorted(azure_update_types),
-                             selected_categories=selected_categories,
-                             selected_types=selected_types,
-                             pagination=pagination,
-                             total_filtered=total_filtered)
+        return redirect(url_for('admin'))
 
     @app.route('/insights')
     def insights():
-        # Get weekly insights ordered by week_start
-        insights = WeeklyInsight.query.order_by(WeeklyInsight.week_start.asc()).all()
+        """Show insights page."""
+        # Get weekly insights
+        insights = WeeklyInsight.query.order_by(WeeklyInsight.week_start.desc()).all()
         
-        # Prepare trend chart data
-        labels = []
-        aws_data = []
-        azure_data = []
+        # Prepare data for charts
+        weeks = []
+        aws_counts = []
+        azure_counts = []
         
-        for insight in insights:
-            # Format date as 'YYYY-MM-DD'
-            week_label = insight.week_start.strftime('%Y-%m-%d')
-            labels.append(week_label)
-            aws_data.append(insight.aws_updates)
-            azure_data.append(insight.azure_updates)
+        for insight in insights:  
+            weeks.append(insight.week_start.strftime('%b %d'))
+            aws_counts.append(insight.aws_updates)
+            azure_counts.append(insight.azure_updates)
         
-        trend_chart_data = {
-            'labels': labels,
-            'datasets': [
-                {
-                    'label': 'AWS Updates',
-                    'data': aws_data,
-                    'borderColor': '#FF9900',  # AWS brand color
-                    'backgroundColor': 'rgba(255, 153, 0, 0.1)',
-                    'fill': True
-                },
-                {
-                    'label': 'Azure Updates',
-                    'data': azure_data,
-                    'borderColor': '#008AD7',  # Azure brand color
-                    'backgroundColor': 'rgba(0, 138, 215, 0.1)',
-                    'fill': True
-                }
-            ]
-        }
+        # Reverse lists to show chronological order
+        weeks.reverse()
+        aws_counts.reverse()
+        azure_counts.reverse()
         
-        # Get current update counts
-        total_aws, total_azure = get_update_counts()
+        # Get latest insight for product/category charts
+        latest_insight = WeeklyInsight.query.order_by(WeeklyInsight.week_start.desc()).first()
         
-        # Get Azure category distribution
-        azure_updates = Update.query.filter_by(provider='azure').all()
-        azure_categories = {}
-        for update in azure_updates:
-            for category in update.categories:
-                azure_categories[category] = azure_categories.get(category, 0) + 1
-        
-        # Sort categories by count and get top 5
-        sorted_azure_categories = sorted(azure_categories.items(), key=lambda x: x[1], reverse=True)
-        top_5_azure = sorted_azure_categories[:5]
-        rest_azure = sum(count for _, count in sorted_azure_categories[5:])
-        
-        azure_chart_data = {
-            'labels': [cat[0] for cat in top_5_azure] + ['Rest'],
-            'datasets': [{
-                'label': 'Azure Updates by Category',
-                'data': [cat[1] for cat in top_5_azure] + [rest_azure],
-                'backgroundColor': [
-                    '#008AD7',  # Azure blue
-                    '#00A2ED',
-                    '#00B7FF',
-                    '#33C6FF',
-                    '#66D5FF',
-                    '#99E4FF'  # Lighter shade for 'Rest'
-                ]
-            }]
-        }
-        
-        # Get AWS product distribution
-        aws_updates = Update.query.filter_by(provider='aws').all()
-        aws_products = {}
-        for update in aws_updates:
-            if update.product_name:
-                aws_products[update.product_name] = aws_products.get(update.product_name, 0) + 1
-        
-        # Sort products by count and get top 5
-        sorted_aws_products = sorted(aws_products.items(), key=lambda x: x[1], reverse=True)
-        top_5_aws = sorted_aws_products[:5]
-        rest_aws = sum(count for _, count in sorted_aws_products[5:])
-        
-        aws_chart_data = {
-            'labels': [prod[0] for prod in top_5_aws] + ['Rest'],
-            'datasets': [{
-                'label': 'AWS Updates by Product',
-                'data': [prod[1] for prod in top_5_aws] + [rest_aws],
-                'backgroundColor': [
-                    '#FF9900',  # AWS orange
-                    '#FFB13D',
-                    '#FFC266',
-                    '#FFD699',
-                    '#FFE4B3',
-                    '#FFF2D9'  # Lighter shade for 'Rest'
-                ]
-            }]
-        }
-        
-        return render_template('insights.html', 
-                            insights=insights,
-                            trend_chart_data=trend_chart_data,
-                            azure_chart_data=azure_chart_data,
-                            aws_chart_data=aws_chart_data,
-                            total_aws=total_aws,
-                            total_azure=total_azure)
+        return render_template(
+            'insights.html',
+            weeks=weeks,
+            aws_counts=aws_counts,
+            azure_counts=azure_counts,
+            latest_insight=latest_insight
+        )
 
     @app.route('/admin')
     def admin():
-        # Get stats for display
-        total_aws, total_azure = get_update_counts()
+        """Admin dashboard."""
+        # Get available weeks for theme generation
+        available_weeks = get_available_weeks()
+        
+        # Get current week as default selection
+        selected_week = get_week_start(datetime.utcnow())
+        
+        # Get stats for both providers
+        total_aws = Update.query.filter_by(provider='aws').count()
+        total_azure = Update.query.filter_by(provider='azure').count()
         
         # Get latest updates
         latest_aws = Update.query.filter_by(provider='aws').order_by(Update.published_date.desc()).first()
         latest_azure = Update.query.filter_by(provider='azure').order_by(Update.published_date.desc()).first()
         
-        return render_template('admin.html', 
-                             total_aws=total_aws, 
-                             total_azure=total_azure,
-                             latest_aws=latest_aws,
-                             latest_azure=latest_azure)
+        return render_template(
+            'admin.html',
+            total_aws=total_aws,
+            total_azure=total_azure,
+            latest_aws=latest_aws,
+            latest_azure=latest_azure,
+            available_weeks=available_weeks,
+            selected_week=selected_week
+        )
+
+    @app.route('/admin/scrape/aws', methods=['POST'])
+    def admin_scrape_aws_updates():
+        """Scrape AWS updates."""
+        try:
+            scrape_aws_updates()
+            flash('Successfully fetched AWS updates.', 'success')
+        except Exception as e:
+            flash(f'Error fetching AWS updates: {str(e)}', 'error')
+        
+        return redirect(url_for('admin'))
+
+    @app.route('/admin/scrape/azure', methods=['POST'])
+    def admin_scrape_azure_updates():
+        """Scrape Azure updates."""
+        try:
+            scrape_azure_updates()
+            flash('Successfully fetched Azure updates.', 'success')
+        except Exception as e:
+            flash(f'Error fetching Azure updates: {str(e)}', 'error')
+        
+        return redirect(url_for('admin'))
 
     @app.route('/admin/refresh', methods=['POST'])
     def admin_refresh():
@@ -330,64 +376,47 @@ def init_routes(app):
         
         return redirect(url_for('admin'))
 
-    @app.route('/admin/generate_insights', methods=['POST'])
-    def admin_generate_insights():
+    @app.route('/admin/generate_themes', methods=['POST'])
+    def admin_generate_themes():
+        """Generate themes for selected week."""
+        week = datetime.fromisoformat(request.form['week'])
+        
         try:
-            # Clear existing insights
-            WeeklyInsight.query.delete()
+            # Get updates for the week
+            week_end = week + timedelta(days=7)
+            updates = Update.query.filter(
+                Update.published_date >= week,
+                Update.published_date < week_end
+            ).all()
             
-            # Find the earliest and latest update dates
-            earliest_update = Update.query.order_by(Update.published_date.asc()).first()
-            latest_update = Update.query.order_by(Update.published_date.desc()).first()
-            
-            if not earliest_update or not latest_update:
-                flash('No updates found to generate insights from.', 'error')
+            if not updates:
+                flash('No updates found for the selected week.', 'warning')
                 return redirect(url_for('admin'))
             
-            # Start from the beginning of the week of the earliest update
-            start_date = earliest_update.published_date - timedelta(days=earliest_update.published_date.weekday())
-            start_date = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
+            # Delete existing themes for this week
+            WeeklyTheme.query.filter_by(week_start=week).delete()
             
-            # End at the end of the current week
-            end_date = datetime.utcnow()
-            end_date = end_date - timedelta(days=end_date.weekday()) + timedelta(days=7)
-            end_date = end_date.replace(hour=0, minute=0, second=0, microsecond=0)
+            # Generate new themes
+            analyzer = ThemeAnalyzer()
+            themes = analyzer.generate_themes(updates)
             
-            # Generate insights for each week
-            current_week = start_date
-            while current_week < end_date:
-                week_end = current_week + timedelta(days=7)
-                
-                # Count updates for this week
-                aws_count = Update.query.filter(
-                    Update.provider == 'aws',
-                    Update.published_date >= current_week,
-                    Update.published_date < week_end
-                ).count()
-                
-                azure_count = Update.query.filter(
-                    Update.provider == 'azure',
-                    Update.published_date >= current_week,
-                    Update.published_date < week_end
-                ).count()
-                
-                # Only create insight if there are updates
-                if aws_count > 0 or azure_count > 0:
-                    insight = WeeklyInsight(
-                        week_start=current_week,
-                        week_end=week_end,
-                        aws_updates=aws_count,
-                        azure_updates=azure_count
-                    )
-                    db.session.add(insight)
-                
-                current_week = week_end
+            # Save themes
+            for theme in themes:
+                theme_obj = WeeklyTheme(
+                    week_start=week,
+                    provider=theme['provider'],
+                    theme_name=theme['name'],
+                    description=theme['description'],
+                    relevance_score=theme['score'],
+                    update_count=theme['update_count']
+                )
+                db.session.add(theme_obj)
             
             db.session.commit()
-            flash('Weekly insights have been regenerated for all data.', 'success')
+            flash(f'Successfully generated {len(themes)} themes for week of {week.strftime("%b %d, %Y")}.', 'success')
         except Exception as e:
             db.session.rollback()
-            flash(f'Error generating insights: {str(e)}', 'error')
+            flash(f'Error generating themes: {str(e)}', 'error')
         
         return redirect(url_for('admin'))
 
@@ -403,33 +432,12 @@ def init_routes(app):
 
     @app.route('/admin/cleanup', methods=['POST'])
     def admin_cleanup():
+        """Clean duplicate updates."""
         try:
-            # Find duplicate Azure updates
-            duplicates = db.session.query(Update.title, Update.published_date, func.count('*').label('count'))\
-                .filter_by(provider='azure')\
-                .group_by(Update.title, Update.published_date)\
-                .having(func.count('*') > 1)\
-                .all()
-            
-            removed_count = 0
-            for title, published_date, count in duplicates:
-                # Get all updates with this title and date
-                updates = Update.query.filter_by(
-                    provider='azure',
-                    title=title,
-                    published_date=published_date
-                ).order_by(Update.id).all()
-                
-                # Keep the first one, delete the rest
-                for update in updates[1:]:
-                    db.session.delete(update)
-                    removed_count += 1
-            
-            db.session.commit()
-            flash(f'Successfully removed {removed_count} duplicate Azure updates.', 'success')
+            removed = clean_all_updates()
+            flash(f'Successfully cleaned {removed} duplicate updates.', 'success')
         except Exception as e:
-            db.session.rollback()
-            flash(f'Error cleaning up duplicates: {str(e)}', 'error')
+            flash(f'Error cleaning updates: {str(e)}', 'error')
         
         return redirect(url_for('admin'))
 
@@ -500,3 +508,27 @@ def init_routes(app):
             } for u in azure_updates]
         }
         return jsonify(debug_info)
+
+    def get_available_weeks():
+        """Get list of available weeks from updates."""
+        # Get all update dates
+        dates = [r.published_date for r in Update.query.with_entities(Update.published_date).all()]
+        if not dates:
+            return [get_week_start(datetime.utcnow())]
+        
+        # Get min and max dates
+        min_date = min(dates)
+        max_date = max(dates)
+        
+        # Generate list of weeks
+        weeks = []
+        current = get_week_start(min_date)
+        while current <= max_date:
+            weeks.append(current)
+            current += timedelta(days=7)
+        
+        return weeks
+
+    def get_week_start(date):
+        """Get the start of the week (Monday) for a given date."""
+        return date - timedelta(days=date.weekday())

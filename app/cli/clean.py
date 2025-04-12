@@ -7,12 +7,12 @@ from app import db
 from app.models import Update
 from app.utils.clean_updates import clean_aws_updates, clean_azure_updates
 
-@click.group(name='clean')
-def cli():
+@click.group()
+def clean():
     """Clean AWS and Azure updates."""
     pass
 
-@cli.command()
+@clean.command()
 @click.option('--delete-old', is_flag=True, help='Delete updates older than 90 days')
 @with_appcontext
 def azure(delete_old):
@@ -21,7 +21,7 @@ def azure(delete_old):
     removed = clean_azure_updates(updates, delete_old=delete_old)
     click.echo(f'Cleaned {removed} Azure updates.')
 
-@cli.command()
+@clean.command()
 @click.option('--delete-old', is_flag=True, help='Delete updates older than 90 days')
 @with_appcontext
 def aws(delete_old):
@@ -30,7 +30,7 @@ def aws(delete_old):
     removed = clean_aws_updates(updates, delete_old=delete_old)
     click.echo(f'Cleaned {removed} AWS updates.')
 
-@cli.command()
+@clean.command()
 @click.option('--delete-old', is_flag=True, help='Delete updates older than 90 days')
 @with_appcontext
 def all(delete_old):
@@ -49,4 +49,4 @@ def all(delete_old):
     click.echo(f'Total updates cleaned: {total_removed}')
 
 if __name__ == '__main__':
-    cli()
+    clean()

@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1 class="mb-4">Weekly Themes</h1>
+
+    <!-- Week Selection -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <form method="get" action="{{ url_for('themes') }}" class="d-flex align-items-center">
+                <label for="week" class="me-2">Select Week:</label>
+                <select name="week" id="week" class="form-select me-2" onchange="this.form.submit()">
+                    {% for week in available_weeks %}
+                    <option value="{{ week }}" {% if week == selected_week %}selected{% endif %}>
+                        Week of {{ week.strftime('%b %d, %Y') }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </form>
+        </div>
+    </div>
+
+    <!-- AWS Themes -->
+    <div class="card mb-4">
+        <div class="card-header bg-warning text-dark">
+            <h2 class="h5 mb-0"><i class="fab fa-aws me-2"></i>AWS Themes</h2>
+        </div>
+        <div class="card-body">
+            {% if aws_themes %}
+            <div class="list-group">
+                {% for theme in aws_themes %}
+                <div class="list-group-item">
+                    <h5 class="mb-1">{{ theme.theme_name }}</h5>
+                    <p class="mb-1">{{ theme.description }}</p>
+                    <small class="text-muted">
+                        Relevance: {{ "%.2f"|format(theme.relevance_score) }} | 
+                        Updates: {{ theme.update_count }}
+                    </small>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-muted">No AWS themes available for this week.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Azure Themes -->
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <h2 class="h5 mb-0"><i class="fab fa-microsoft me-2"></i>Azure Themes</h2>
+        </div>
+        <div class="card-body">
+            {% if azure_themes %}
+            <div class="list-group">
+                {% for theme in azure_themes %}
+                <div class="list-group-item">
+                    <h5 class="mb-1">{{ theme.theme_name }}</h5>
+                    <p class="mb-1">{{ theme.description }}</p>
+                    <small class="text-muted">
+                        Relevance: {{ "%.2f"|format(theme.relevance_score) }} | 
+                        Updates: {{ theme.update_count }}
+                    </small>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-muted">No Azure themes available for this week.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
