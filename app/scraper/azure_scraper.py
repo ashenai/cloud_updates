@@ -34,26 +34,45 @@ class AzureScraper:
     """Scraper for Azure updates RSS feed."""
     
     def __init__(self):
-        self.feed_url = "https://azurecomcdn.azureedge.net/en-us/updates/feed/"
+        self.feed_url = "https://www.microsoft.com/releasecommunications/api/v2/azure/rss"  # Official Azure RSS feed
     
     def get_update_date(self, entry_dict):
         """Get the most recent update date from entry."""
         # Try to get the a10:updated date first
         updated = entry_dict.get('updated')
+        published = entry_dict.get('published')
+        
+        print(f"Parsing dates - Updated: {updated}, Published: {published}")
+        
+        # Remove GMT/UTC if present
         if updated:
-            try:
-                return datetime.strptime(updated, '%Y-%m-%dT%H:%M:%SZ')
-            except ValueError:
-                pass
+            updated = updated.replace(' GMT', '').replace(' UTC', '')
+        if published:
+            published = published.replace(' GMT', '').replace(' UTC', '')
+        
+        formats = [
+            '%a, %d %b %Y %H:%M:%S %z',  # With timezone
+            '%a, %d %b %Y %H:%M:%S',      # Without timezone
+            '%Y-%m-%dT%H:%M:%SZ'          # ISO format
+        ]
+        
+        # Try updated date first
+        if updated:
+            for fmt in formats:
+                try:
+                    return datetime.strptime(updated, fmt)
+                except ValueError:
+                    continue
         
         # Fall back to published date
-        published = entry_dict.get('published')
         if published:
-            try:
-                return datetime.strptime(published, '%Y-%m-%dT%H:%M:%SZ')
-            except ValueError:
-                pass
+            for fmt in formats:
+                try:
+                    return datetime.strptime(published, fmt)
+                except ValueError:
+                    continue
         
+        print("Could not parse any dates")
         return None
 
     def clean_html(self, html_content):
@@ -71,41 +90,83 @@ class AzureScraper:
         description = self.clean_html(entry.get('description', ''))
         published_date = self.get_update_date(entry)
         
+        print(f"\nProcessing Azure entry:")
+        print(f"Title: {title}")
+        print(f"Link: {link}")
+        print(f"Published: {published_date}")
+        
         if not all([title, link, published_date]):
+            print("Missing required fields!")
+            if not title:
+                print("- Missing title")
+            if not link:
+                print("- Missing link")
+            if not published_date:
+                print("- Missing published_date")
             return None
         
-        # Create Update object
-        update = Update(
-            title=title,
-            link=link,
-            description=description,
-            published_date=published_date,
-            provider='azure'
-        )
-        
-        return update
+        try:
+            # Create Update object
+            update = Update(
+                title=title,
+                url=link,
+                description=description,
+                published_date=published_date,
+                provider='azure',
+                categories=entry.get('categories', [])
+            )
+            print("Successfully created Azure Update object")
+            return update
+        except Exception as e:
+            print(f"Error creating Azure Update object: {str(e)}")
+            return None
 
     def scrape(self):
         """Scrape Azure updates from RSS feed."""
         try:
-            # Fetch RSS feed
-            response = requests.get(self.feed_url)
+            print("Fetching Azure RSS feed...")
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            }
+            response = requests.get(self.feed_url, headers=headers)
             response.raise_for_status()
+            print(f"Got response: {response.status_code}")
+            print("\nResponse content type:", response.headers.get('content-type', ''))
             
             # Parse XML with BeautifulSoup
             soup = BeautifulSoup(response.content, 'xml')
-            entries = []
+            print(f"\nParsed XML response")
             
-            # Extract entries
-            for item in soup.find_all('item'):
+            # Find the channel element
+            channel = soup.find('channel')
+            if not channel:
+                print("No channel element found")
+                return []
+                
+            # Extract entries from items
+            items = channel.find_all('item')
+            print(f"\nFound {len(items)} items in feed")
+            
+            if items:
+                print("\nFirst item structure:")
+                print(items[0].prettify())
+            
+            entries = []
+            for item in items:
                 entry = {
                     'title': item.title.text if item.title else '',
                     'link': item.link.text if item.link else '',
                     'description': item.description.text if item.description else '',
                     'published': item.pubDate.text if item.pubDate else None,
-                    'updated': item.find('updated').text if item.find('updated') else None
+                    'updated': item.find('updated').text if item.find('updated') else None,
+                    'categories': [cat.text for cat in item.find_all('category')] if item.find('category') else []
                 }
                 entries.append(entry)
+            
+            print(f"Extracted {len(entries)} entries")
+            if entries:
+                print("\nFirst entry data:")
+                print(entries[0])
             
             # Process entries
             updates = []
@@ -114,8 +175,11 @@ class AzureScraper:
                 if update:
                     updates.append(update)
             
+            print(f"Created {len(updates)} Update objects")
             return updates
             
         except Exception as e:
             print(f"Error scraping Azure updates: {str(e)}")
+            import traceback
+            traceback.print_exc()
             return []

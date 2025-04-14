@@ -25,16 +25,25 @@ venv/
 ENV/
 env/
 
+# Environment variables
+.env
+.env.*
+*.env
+
 # Flask
-instance/
 .webassets-cache
 *.db
 
 # IDE
-.idea/
 .vscode/
+.idea/
 *.swp
 *.swo
+
+# Local development
+local_settings.py
+config.py
+instance/
 
 # OS
 .DS_Store
