@@ -47,6 +47,23 @@ def rebuild_search_index():
     updates = Update.query.all()
     update_search.build_index(updates)
 
+def get_available_weeks():
+    """Get a list of available weeks for theme generation.
+    
+    Returns a list of datetime objects representing the start of each week,
+    going back 12 weeks from the current week.
+    """
+    # Get the start of the current week
+    current_week = get_week_start(datetime.utcnow())
+    
+    # Generate a list of weeks (going back 12 weeks)
+    weeks = []
+    for i in range(12):
+        week_start = current_week - timedelta(days=7 * i)
+        weeks.append(week_start)
+    
+    return weeks
+
 def init_routes(app):
     @app.context_processor
     def inject_now():
@@ -97,10 +114,22 @@ def init_routes(app):
             
             if week_param:
                 try:
-                    selected_week = datetime.strptime(week_param, '%Y-%m-%d')
+                    # Try multiple date formats to handle different inputs
+                    for date_format in ['%Y-%m-%d', '%Y-%m-%dT%H:%M:%S', '%Y-%m-%d %H:%M:%S']:
+                        try:
+                            selected_week = datetime.strptime(week_param, date_format)
+                            break
+                        except ValueError:
+                            continue
+                    else:
+                        # If none of the formats worked, raise ValueError
+                        raise ValueError(f"Could not parse date: {week_param}")
+                        
+                    # Ensure we're using the start of the week
                     selected_week = get_week_start(selected_week)
-                except ValueError:
-                    print(f"Error parsing week parameter: {week_param}")  # Debug print
+                    print(f"Parsed selected week: {selected_week}")  # Debug print
+                except ValueError as e:
+                    print(f"Error parsing week parameter: {week_param} - {str(e)}")  # Debug print
                     selected_week = weeks[0] if weeks else get_week_start(datetime.utcnow())
             else:
                 # Use most recent week with themes, or current week if none
@@ -119,6 +148,28 @@ def init_routes(app):
             print(f"Found {len(themes)} themes for week {selected_week}")  # Debug print
             for theme in themes:
                 print(f"- {theme.theme_name} ({theme.provider})")  # Debug print
+            
+            # If no themes found for the selected week, check if we need to convert the date
+            if not themes and week_param:
+                print(f"No themes found for {selected_week}, trying alternative date formats")
+                
+                # Try to find the week by searching for a close match
+                for week in weeks:
+                    if abs((week - selected_week).days) < 7:
+                        print(f"Found close match: {week} for {selected_week}")
+                        selected_week = week
+                        
+                        # Get themes for the matched week
+                        themes = WeeklyTheme.query.filter(
+                            WeeklyTheme.week_start == selected_week
+                        ).order_by(
+                            WeeklyTheme.provider,
+                            WeeklyTheme.relevance_score.desc()
+                        ).all()
+                        
+                        if themes:
+                            print(f"Found {len(themes)} themes using close match")
+                            break
             
             return render_template(
                 'themes.html',
@@ -507,86 +558,80 @@ def init_routes(app):
     def admin_generate_themes():
         """Generate themes from updates."""
         try:
-            # Clear existing themes
-            Theme.query.delete()
-            WeeklyTheme.query.delete()
+            # Get the selected week from the form
+            selected_week_str = request.form.get('week')
+            if not selected_week_str:
+                flash('No week selected. Please select a week.', 'error')
+                return redirect(url_for('admin'))
+                
+            # Parse the selected week
+            try:
+                selected_week = datetime.fromisoformat(selected_week_str)
+                print(f"Selected week: {selected_week}")
+            except ValueError:
+                flash('Invalid week format. Please try again.', 'error')
+                return redirect(url_for('admin'))
+                
+            # Calculate the end of the selected week
+            week_end = selected_week + timedelta(days=7)
             
-            # Get recent updates (last 30 days)
-            thirty_days_ago = datetime.utcnow() - timedelta(days=30)
-            updates = Update.query.filter(Update.published_date >= thirty_days_ago).all()
+            # Clear existing themes for the selected week
+            WeeklyTheme.query.filter_by(week_start=selected_week).delete()
+            
+            # Get updates for the selected week only
+            updates = Update.query.filter(
+                Update.published_date >= selected_week,
+                Update.published_date < week_end
+            ).all()
             
             if not updates:
-                flash('No recent updates found to generate themes from.', 'error')
+                flash(f'No updates found for the week of {selected_week.strftime("%b %d, %Y")}.', 'warning')
                 return redirect(url_for('admin'))
             
-            # Group updates by week
-            updates_by_week = {}
-            for update in updates:
-                week_start = get_week_start(update.published_date)
-                if week_start not in updates_by_week:
-                    updates_by_week[week_start] = []
-                updates_by_week[week_start].append(update)
+            print(f"\nFound {len(updates)} updates for week of {selected_week.strftime('%b %d, %Y')}")  # Debug print
             
-            print(f"\nFound updates for weeks: {list(updates_by_week.keys())}")  # Debug print
+            # Group updates by provider
+            aws_updates = [u for u in updates if u.provider.lower() == 'aws']
+            azure_updates = [u for u in updates if u.provider.lower() == 'azure']
             
-            # Generate themes for each week
+            # Generate themes for each provider if they have updates
             analyzer = LLMThemeAnalyzer()
-            for week_start, week_updates in updates_by_week.items():
-                print(f"\nGenerating themes for week of {week_start}")  # Debug print
-                print(f"Number of updates: {len(week_updates)}")  # Debug print
-                
-                # Group updates by provider
-                aws_updates = [u for u in week_updates if u.provider.lower() == 'aws']
-                azure_updates = [u for u in week_updates if u.provider.lower() == 'azure']
-                
-                # Generate themes for each provider if they have updates
-                for provider, provider_updates in [('aws', aws_updates), ('azure', azure_updates)]:
-                    if provider_updates:
-                        print(f"\nProcessing {provider} updates for week {week_start}")  # Debug print
-                        print(f"Number of {provider} updates: {len(provider_updates)}")  # Debug print
+            for provider, provider_updates in [('aws', aws_updates), ('azure', azure_updates)]:
+                if provider_updates:
+                    print(f"\nProcessing {provider} updates for week {selected_week}")  # Debug print
+                    print(f"Number of {provider} updates: {len(provider_updates)}")  # Debug print
+                    
+                    try:
+                        themes = analyzer.generate_themes(provider_updates)
                         
-                        try:
-                            themes = analyzer.generate_themes(provider_updates)
-                            
-                            # Save themes
-                            for theme_data in themes:
-                                # Save to Theme model (global themes)
-                                theme = Theme(
-                                    name=theme_data['name'],
-                                    description=theme_data['description'],
-                                    provider=theme_data['provider'],
-                                    services=theme_data['services'],
-                                    update_count=theme_data['update_count'],
-                                    score=theme_data['score']
-                                )
-                                db.session.add(theme)
-                                
-                                # Create WeeklyTheme
-                                weekly_theme = WeeklyTheme(
-                                    week_start=week_start,  # Use the week we're currently processing
-                                    provider=theme_data['provider'],
-                                    theme_name=theme_data['name'],
-                                    description=theme_data['description'],
-                                    relevance_score=theme_data['score'],
-                                    update_count=theme_data['update_count']
-                                )
-                                print(f"Creating WeeklyTheme: {weekly_theme.theme_name} for week {weekly_theme.week_start}")  # Debug print
-                                db.session.add(weekly_theme)
-                            
-                        except Exception as e:
-                            print(f"Error generating themes for {provider} in week {week_start}: {str(e)}")  # Debug print
-                            continue
+                        # Save themes
+                        for theme_data in themes:
+                            # Create WeeklyTheme
+                            weekly_theme = WeeklyTheme(
+                                week_start=selected_week,  # Use the selected week
+                                provider=theme_data['provider'],
+                                theme_name=theme_data['name'],
+                                description=theme_data['description'],
+                                relevance_score=theme_data['score'],
+                                update_count=theme_data['update_count']
+                            )
+                            print(f"Creating WeeklyTheme: {weekly_theme.theme_name} for week {weekly_theme.week_start}")  # Debug print
+                            db.session.add(weekly_theme)
+                        
+                    except Exception as e:
+                        print(f"Error generating themes for {provider} in week {selected_week}: {str(e)}")  # Debug print
+                        continue
             
             try:
                 db.session.commit()
                 print("\nSuccessfully committed themes to database")  # Debug print
                 # Query and print all weekly themes after commit
-                all_themes = WeeklyTheme.query.all()
-                print(f"\nAll weekly themes in database:")
+                all_themes = WeeklyTheme.query.filter_by(week_start=selected_week).all()
+                print(f"\nWeekly themes for {selected_week.strftime('%b %d, %Y')}:")
                 for t in all_themes:
-                    print(f"- {t.theme_name} (Week: {t.week_start}, Provider: {t.provider})")
+                    print(f"- {t.theme_name} (Provider: {t.provider})")
                 
-                flash('Successfully generated themes using Claude.', 'success')
+                flash(f'Successfully generated themes for week of {selected_week.strftime("%b %d, %Y")}.', 'success')
             except Exception as commit_error:
                 print(f"Error committing to database: {str(commit_error)}")
                 db.session.rollback()
@@ -809,26 +854,6 @@ def init_routes(app):
             import traceback
             traceback.print_exc()
             return f"Error reprocessing Azure updates: {str(e)}"
-
-    def get_available_weeks():
-        """Get list of available weeks from updates."""
-        # Get all update dates
-        dates = [r.published_date for r in Update.query.with_entities(Update.published_date).all()]
-        if not dates:
-            return [get_week_start(datetime.utcnow())]
-        
-        # Get min and max dates
-        min_date = min(dates)
-        max_date = max(dates)
-        
-        # Generate list of weeks
-        weeks = []
-        current = get_week_start(min_date)
-        while current <= max_date:
-            weeks.append(current)
-            current += timedelta(days=7)
-        
-        return weeks
 
     def get_week_start(dt):
         """Get the start of the week (Monday) for a given date/datetime."""
