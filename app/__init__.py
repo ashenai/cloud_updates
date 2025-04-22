@@ -27,6 +27,7 @@ from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from config import Config
+import os
 
 # Initialize extensions
 db = SQLAlchemy()
@@ -35,7 +36,25 @@ migrate = Migrate()
 def create_app(config_class=Config):
     """Create and configure the Flask application."""
     app = Flask(__name__)
+    
+    # Get absolute path for database
+    instance_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'instance'))
+    db_path = os.path.join(instance_path, 'cloud_updates.db')
+    
+    # Ensure instance folder exists
+    try:
+        os.makedirs(instance_path, exist_ok=True)
+    except OSError:
+        pass
+        
+    # Force database name before loading config
+    app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
+    print(f"Setting database path to: {app.config['SQLALCHEMY_DATABASE_URI']}")
+    
+    # Load rest of config but preserve database URI
+    db_uri = app.config['SQLALCHEMY_DATABASE_URI']
     app.config.from_object(config_class)
+    app.config['SQLALCHEMY_DATABASE_URI'] = db_uri
 
     # Initialize extensions with app
     db.init_app(app)
@@ -50,6 +69,7 @@ def create_app(config_class=Config):
         try:
             db.create_all()
             print("Database tables created successfully!")
+            print(f"Final database URI: {app.config['SQLALCHEMY_DATABASE_URI']}")
         except Exception as e:
             print(f"Error creating database tables: {e}")
     
