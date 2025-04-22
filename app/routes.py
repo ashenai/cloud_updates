@@ -23,7 +23,7 @@ to ensure its accuracy and functionality, users should:
 """
 
 from datetime import datetime, timedelta, date
-from flask import render_template, flash, redirect, url_for, request, jsonify
+from flask import render_template, flash, redirect, url_for, request, jsonify, current_app
 from sqlalchemy import func, extract
 from app.models import Update, WeeklyTheme, WeeklyInsight, Theme
 from app.rag.embeddings import UpdateSearch
@@ -138,38 +138,143 @@ def init_routes(app):
     @app.route('/aws-updates/page/<int:page>')
     def aws_updates(page=1):
         """Show AWS updates."""
-        per_page = 20
-        updates = Update.query.filter_by(provider='aws').order_by(Update.published_date.desc())
-        total = updates.count()
-        total_pages = (total + per_page - 1) // per_page
+        # Get filter parameters
+        selected_products = request.args.getlist('product')
         
-        updates = updates.paginate(page=page, per_page=per_page, error_out=False)
+        # Build query
+        query = Update.query.filter_by(provider='aws')
         
+        # Apply product filter if selected
+        if selected_products:
+            query = query.filter(Update.product_name.in_(selected_products))
+        
+        # Get paginated results
+        updates = query.order_by(Update.published_date.desc()).paginate(
+            page=page, per_page=20, error_out=False
+        )
+        total_pages = updates.pages
+
+        # Debug print for first 3 updates
+        print("=== AWS Updates Debug ===")
+        for upd in updates.items[:3]:
+            print(f"Title: {upd.title}")
+            print(f"Product: {getattr(upd, 'product_name', None)}")
+            print(f"Categories: {getattr(upd, 'categories', None)}")
+            print(f"Types: {getattr(upd, 'update_types', None)}")
+            print(f"Status: {getattr(upd, 'status', None)}")
+            print("---")
+
+        # Get unique product names for filter
+        products = db.session.query(Update.product_name).filter(
+            Update.provider == 'aws',
+            Update.product_name.isnot(None)
+        ).distinct().order_by(Update.product_name).all()
+        products = [p[0] for p in products if p[0]]  # Remove None values
+
         return render_template(
             'base_updates.html',
             updates=updates.items,
             provider='aws',
             page=page,
-            total_pages=total_pages
+            total_pages=total_pages,
+            products=products,
+            selected_products=selected_products
         )
 
     @app.route('/azure-updates')
     @app.route('/azure-updates/page/<int:page>')
     def azure_updates(page=1):
         """Show Azure updates."""
-        per_page = 20
-        updates = Update.query.filter_by(provider='azure').order_by(Update.published_date.desc())
-        total = updates.count()
-        total_pages = (total + per_page - 1) // per_page
+        # Get filter parameters
+        selected_products = request.args.getlist('category')  # Keep parameter name for backwards compatibility
+        selected_types = request.args.getlist('type')
+        selected_statuses = request.args.getlist('status')
         
-        updates = updates.paginate(page=page, per_page=per_page, error_out=False)
+        # Build query
+        query = Update.query.filter_by(provider='azure')
         
+        # Apply product filter if selected
+        if selected_products:
+            # Filter for updates where any of the selected products exist in the product_names array
+            product_filters = []
+            for product in selected_products:
+                # Need to use the _product_names column (JSON string) for filtering
+                product_filters.append(Update._product_names.like(f'%"{product}"%'))
+            query = query.filter(db.or_(*product_filters))
+        
+        # Apply type filter if selected
+        if selected_types:
+            # Filter for updates where any of the selected types exist in the update_types array
+            type_filters = []
+            for update_type in selected_types:
+                # Need to use the _update_types column (JSON string) for filtering
+                type_filters.append(Update._update_types.like(f'%"{update_type}"%'))
+            query = query.filter(db.or_(*type_filters))
+            
+        # Apply status filter if selected
+        if selected_statuses:
+            # Filter for updates where any of the selected statuses exist in the status array
+            status_filters = []
+            for status in selected_statuses:
+                # Need to use the _status column (JSON string) for filtering
+                status_filters.append(Update._status.like(f'%"{status}"%'))
+            query = query.filter(db.or_(*status_filters))
+        
+        # Get paginated results
+        updates = query.order_by(Update.published_date.desc()).paginate(
+            page=page, per_page=20, error_out=False
+        )
+        total_pages = updates.pages
+
+        # Debug print for first 3 updates
+        print("=== Azure Updates Debug ===")
+        for upd in updates.items[:3]:
+            print(f"Title: {upd.title}")
+            print(f"Product: {getattr(upd, 'product_name', None)}")
+            print(f"Products: {getattr(upd, 'product_names', [])}")
+            print(f"Types: {getattr(upd, 'update_types', [])}")
+            print(f"Status: {getattr(upd, 'status', [])}")
+            print("---")
+
+        # Get unique products, types, and statuses for filters
+        products = set()
+        types = set()
+        statuses = set()
+        
+        # Add hardcoded status values to ensure they're always available
+        statuses.update(['In development', 'In preview', 'Launched'])
+        
+        azure_updates = Update.query.filter_by(provider='azure').all()
+        for update in azure_updates:
+            try:
+                if hasattr(update, 'product_names') and update.product_names:
+                    products.update(update.product_names)
+                elif hasattr(update, 'categories') and update.categories:
+                    # Fallback to categories if product_names is empty
+                    products.update(update.categories)
+                    
+                if hasattr(update, 'update_types') and update.update_types:
+                    types.update(update.update_types)
+                    
+                if hasattr(update, 'status') and update.status:
+                    statuses.update(update.status)
+            except Exception as e:
+                print(f"Error processing update {update.id}: {str(e)}")
+        
+        print(f"Found {len(products)} products, {len(types)} types, and {len(statuses)} statuses")
+
         return render_template(
             'base_updates.html',
             updates=updates.items,
             provider='azure',
             page=page,
-            total_pages=total_pages
+            total_pages=total_pages,
+            categories=sorted(products),  # Keep template variable name for backwards compatibility
+            types=sorted(types),
+            statuses=sorted(statuses),
+            selected_categories=selected_products,  # Keep template variable name for backwards compatibility
+            selected_types=selected_types,
+            selected_statuses=selected_statuses
         )
 
     @app.route('/admin/generate_insights', methods=['POST'])
@@ -611,6 +716,99 @@ def init_routes(app):
             } for u in azure_updates]
         }
         return jsonify(debug_info)
+
+    @app.route('/reprocess-aws')
+    def reprocess_aws():
+        """Reprocess existing AWS updates with the improved extraction logic."""
+        try:
+            # Create processor
+            from app.utils.update_processor import UpdateProcessor
+            processor = UpdateProcessor()
+            
+            # Get all AWS updates
+            aws_updates = Update.query.filter_by(provider='aws').all()
+            print(f"Found {len(aws_updates)} AWS updates to reprocess")
+            
+            # Reprocess each update
+            count = 0
+            for update in aws_updates:
+                # Clean description
+                from app.scraper.aws_scraper import AWSScraper
+                scraper = AWSScraper()
+                original_length = len(update.description)
+                update.description = scraper.clean_html(update.description)
+                new_length = len(update.description)
+                print(f"Description length: {original_length} -> {new_length} chars")
+                
+                # Extract product name
+                metadata = processor.process_aws_update({
+                    'title': update.title,
+                    'description': update.description
+                })
+                
+                # Update product name
+                if metadata['product_name']:
+                    update.product_name = metadata['product_name']
+                    count += 1
+                    print(f"Product found: {update.title} -> {metadata['product_name']}")
+                else:
+                    print(f"No product found for: {update.title}")
+            
+            # Commit changes
+            db.session.commit()
+            
+            return f"Successfully reprocessed {count} AWS updates with new product names out of {len(aws_updates)} total."
+        except Exception as e:
+            db.session.rollback()
+            import traceback
+            traceback.print_exc()
+            return f"Error reprocessing AWS updates: {str(e)}"
+
+    @app.route('/reprocess-azure')
+    def reprocess_azure():
+        """Reprocess existing Azure updates with the improved categorization logic."""
+        try:
+            # Create processor
+            from app.utils.update_processor import UpdateProcessor
+            processor = UpdateProcessor()
+            
+            # Get all Azure updates
+            azure_updates = Update.query.filter_by(provider='azure').all()
+            print(f"Found {len(azure_updates)} Azure updates to reprocess")
+            
+            # Reprocess each update
+            count = 0
+            for update in azure_updates:
+                # Extract metadata using the new categorization logic
+                metadata = processor.process_azure_update({
+                    'title': update.title,
+                    'description': update.description,
+                    'categories': update.categories
+                })
+                
+                # Update fields
+                update.product_name = metadata['product_name']
+                update.product_names = metadata['product_names']
+                update.categories = metadata['categories']
+                update.update_types = metadata['update_types']
+                update.status = metadata['status']
+                count += 1
+                
+                print(f"Processed: {update.title}")
+                print(f"  - Primary Product: {update.product_name}")
+                print(f"  - All Products: {update.product_names}")
+                print(f"  - Update Types: {update.update_types}")
+                print(f"  - Status: {update.status}")
+            
+            # Commit changes
+            db.session.commit()
+            
+            return f"Successfully reprocessed {count} Azure updates with new categorization."
+        except Exception as e:
+            db.session.rollback()
+            import traceback
+            traceback.print_exc()
+            return f"Error reprocessing Azure updates: {str(e)}"
 
     def get_available_weeks():
         """Get list of available weeks from updates."""

@@ -5,19 +5,66 @@ from datetime import datetime
 import re
 from app.models import Update
 from app import db
+from app.utils.update_processor import UpdateProcessor
 
 class AWSScraper:
     """Scraper for AWS updates RSS feed."""
     
     def __init__(self):
         self.feed_url = "https://aws.amazon.com/new/feed/"
+        self.processor = UpdateProcessor()
     
     def clean_html(self, html_content):
-        """Clean HTML content using BeautifulSoup."""
+        """Clean HTML content using BeautifulSoup and truncate to reasonable length."""
         if not html_content:
             return ""
+            
+        # Parse HTML
         soup = BeautifulSoup(html_content, 'html.parser')
-        return soup.get_text(separator=' ', strip=True)
+        
+        # Remove unwanted elements
+        for element in soup.find_all(['script', 'style', 'nav', 'footer', 'header', 'table', 'ul', 'ol', 'img']):
+            element.decompose()
+            
+        # Get text with proper spacing
+        text = soup.get_text(separator=' ', strip=True)
+        
+        # Clean up extra whitespace
+        text = re.sub(r'\s+', ' ', text).strip()
+        
+        # Remove common AWS boilerplate text
+        boilerplate = [
+            "Learn more about AWS",
+            "For more information, visit",
+            "To learn more, please visit",
+            "For more information, see",
+            "Please visit the documentation",
+            "For more details, see",
+            "To get started with",
+            "You can learn more about",
+            "For additional information",
+            "For pricing details",
+            "Visit the AWS",
+            "Check out the documentation"
+        ]
+        
+        for phrase in boilerplate:
+            if phrase in text:
+                text = text.split(phrase)[0].strip()
+        
+        # Limit to 3 sentences maximum
+        sentences = text.split('. ')
+        if len(sentences) > 3:
+            text = '. '.join(sentences[:3]) + '.'
+            
+        # Remove trailing punctuation
+        text = text.strip('.,!?;:')
+        
+        # Add ellipsis if truncated
+        if len(sentences) > 3:
+            text += '...'
+            
+        return text
 
     def parse_date(self, date_str):
         """Parse date string into datetime object."""
@@ -45,28 +92,6 @@ class AWSScraper:
         print(f"Could not parse date: {date_str}")
         return None
 
-    def extract_product(self, title, description):
-        """Extract AWS product name from title or description."""
-        # Common AWS service prefixes
-        aws_prefixes = ['AWS', 'Amazon']
-        
-        # Try to find "AWS ServiceName" or "Amazon ServiceName" in title
-        for prefix in aws_prefixes:
-            pattern = fr'{prefix}\s+([A-Za-z0-9]+(?:\s+[A-Za-z0-9]+)*)'
-            match = re.search(pattern, title)
-            if match:
-                return f"{prefix} {match.group(1)}"
-        
-        # If not found in title, try description
-        if description:
-            for prefix in aws_prefixes:
-                pattern = fr'{prefix}\s+([A-Za-z0-9]+(?:\s+[A-Za-z0-9]+)*)'
-                match = re.search(pattern, description)
-                if match:
-                    return f"{prefix} {match.group(1)}"
-        
-        return None
-
     def parse_entry(self, entry):
         """Parse a single RSS entry into an Update object."""
         # Extract basic fields
@@ -90,9 +115,11 @@ class AWSScraper:
                 print("- Missing published_date")
             return None
         
-        # Extract product name
-        product = self.extract_product(title, description)
-        print(f"Extracted product: {product}")
+        # Process update metadata
+        metadata = self.processor.process_aws_update({
+            'title': title,
+            'description': description
+        })
         
         try:
             # Create Update object
@@ -102,7 +129,7 @@ class AWSScraper:
                 description=description,
                 published_date=published_date,
                 provider='aws',
-                product_name=product
+                product_name=metadata['product_name']
             )
             print("Successfully created Update object")
             return update

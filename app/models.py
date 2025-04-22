@@ -36,7 +36,9 @@ class Update(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     _categories = db.Column('categories', db.Text, default='[]')  # JSON array of categories
     _update_types = db.Column('update_types', db.Text, default='[]')  # JSON array of update types
-    product_name = db.Column(db.String(100))  # Name of the AWS/Azure product
+    product_name = db.Column(db.String(100))  # Primary product name (first one for Azure)
+    _status = db.Column('status', db.Text, default='[]')  # JSON array of status tags (for Azure)
+    _product_names = db.Column('product_names', db.Text, default='[]')  # JSON array of all product names (for Azure)
     
     __table_args__ = (
         db.UniqueConstraint('provider', 'title', 'published_date', name='unique_update'),
@@ -67,6 +69,32 @@ class Update(db.Model):
             self._update_types = json.dumps(list(value))
         else:
             self._update_types = '[]'
+    
+    @property
+    def status(self):
+        return json.loads(self._status)
+    
+    @status.setter
+    def status(self, value):
+        if isinstance(value, str):
+            self._status = json.dumps([value])
+        elif isinstance(value, (list, tuple)):
+            self._status = json.dumps(list(value))
+        else:
+            self._status = '[]'
+    
+    @property
+    def product_names(self):
+        return json.loads(self._product_names)
+    
+    @product_names.setter
+    def product_names(self, value):
+        if isinstance(value, str):
+            self._product_names = json.dumps([value])
+        elif isinstance(value, (list, tuple)):
+            self._product_names = json.dumps(list(value))
+        else:
+            self._product_names = '[]'
 
     def __repr__(self):
         return f'<Update {self.provider}:{self.title}>'

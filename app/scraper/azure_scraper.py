@@ -29,12 +29,14 @@ from datetime import datetime
 import re
 from app.models import Update
 from app import db
+from app.utils.update_processor import UpdateProcessor
 
 class AzureScraper:
     """Scraper for Azure updates RSS feed."""
     
     def __init__(self):
         self.feed_url = "https://www.microsoft.com/releasecommunications/api/v2/azure/rss"  # Official Azure RSS feed
+        self.processor = UpdateProcessor()
     
     def get_update_date(self, entry_dict):
         """Get the most recent update date from entry."""
@@ -105,6 +107,20 @@ class AzureScraper:
                 print("- Missing published_date")
             return None
         
+        # Process update metadata
+        metadata = self.processor.process_azure_update({
+            'title': title,
+            'description': description,
+            'categories': entry.get('categories', [])
+        })
+        
+        # Debug print for metadata
+        print(f"Extracted metadata:")
+        print(f"- Primary Product: {metadata['product_name']}")
+        print(f"- All Products: {metadata['product_names']}")
+        print(f"- Update Types: {metadata['update_types']}")
+        print(f"- Status: {metadata['status']}")
+        
         try:
             # Create Update object
             update = Update(
@@ -113,7 +129,11 @@ class AzureScraper:
                 description=description,
                 published_date=published_date,
                 provider='azure',
-                categories=entry.get('categories', [])
+                product_name=metadata['product_name'],
+                product_names=metadata['product_names'],
+                categories=metadata['categories'],
+                update_types=metadata['update_types'],
+                status=metadata['status']
             )
             print("Successfully created Azure Update object")
             return update

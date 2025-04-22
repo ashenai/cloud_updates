@@ -4,10 +4,23 @@ from app.scraper.azure_scraper import AzureScraper
 from app import db
 from app.models import Update
 from sqlalchemy.exc import IntegrityError
+from app.scraper.aws_services import AWSServicesFetcher
 
 def scrape_aws_updates():
     """Scrape AWS updates."""
     print("\nStarting AWS updates scrape...")
+    
+    # First, refresh the AWS services cache
+    try:
+        print("Refreshing AWS services cache...")
+        aws_services_fetcher = AWSServicesFetcher()
+        services = aws_services_fetcher.get_services(refresh=True)
+        print(f"AWS services cache refreshed. Found {len(services)} services.")
+    except Exception as e:
+        print(f"Warning: Failed to refresh AWS services cache: {str(e)}")
+        print("Continuing with existing cache...")
+    
+    # Now scrape updates
     scraper = AWSScraper()
     updates = scraper.scrape()
     print(f"Got {len(updates)} AWS updates from scraper")
