@@ -112,6 +112,59 @@
         margin-top: 4px;
         font-style: italic;
     }
+
+    /* Filter styles */
+    .filter-header {
+        cursor: pointer;
+        padding: 0.25rem 0;
+    }
+    
+    .filter-container {
+        display: none;
+        margin-top: 0.25rem;
+        z-index: 100;
+        position: absolute;
+        background: white;
+        width: 90%;
+    }
+    
+    /* Metadata display styles */
+    .metadata-group {
+        position: relative;
+    }
+    
+    .metadata-details {
+        display: none;
+        position: absolute;
+        top: 100%;
+        left: 0;
+        background: white;
+        border: 1px solid rgba(0,0,0,0.125);
+        border-radius: 0.25rem;
+        padding: 0.5rem;
+        z-index: 10;
+        min-width: 200px;
+        max-width: 300px;
+    }
+    
+    .metadata-group:hover .metadata-details {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.25rem;
+    }
+    
+    .badge.rounded-pill {
+        cursor: default;
+    }
+    
+    /* Update item styles */
+    .list-group-item {
+        transition: background-color 0.2s;
+    }
+    
+    .list-group-item:hover {
+        background-color: rgba(0,0,0,0.02);
+    }
 </style>
 {% endblock %}
 
@@ -125,162 +178,169 @@
     </div>
 </div>
 
-<div class="container mb-4">
-    <h1 class="mb-4">
-        {% if provider == 'aws' %}
-        <i class="fab fa-aws me-2"></i>AWS Updates
-        {% else %}
-        <i class="fab fa-microsoft me-2"></i>Azure Updates
-        {% endif %}
-    </h1>
-
-    <form id="filterForm" method="GET" action="{{ url_for(provider + '_updates') }}">
-        <div class="row">
-            {% if provider == 'aws' %}
-            <div class="col-md-4">
-                <div class="form-group">
-                    <div class="filter-header" data-filter-type="product">
-                        <span>Filter by Product</span>
-                        <span class="icon">▼</span>
-                    </div>
-                    <div class="filter-summary" id="productSummary">
-                        {% if selected_products %}
-                            {% if selected_products|length <= 2 %}
-                                {{ selected_products|join(', ') }}
-                            {% else %}
-                                {{ selected_products|length }} products selected
-                            {% endif %}
-                        {% else %}
-                            All Products
-                        {% endif %}
-                    </div>
-                    <div class="filter-container border rounded p-2" data-filter-type="product">
-                        <div class="form-check">
-                            <input class="form-check-input filter-all" type="checkbox" id="productFilterAll" 
-                                   {% if not selected_products %}checked{% endif %} data-filter-type="product">
-                            <label class="form-check-label" for="productFilterAll">All Products</label>
-                        </div>
-                        {% for product in products %}
-                        <div class="form-check">
-                            <input class="form-check-input filter-item" type="checkbox" id="product-{{ loop.index }}" 
-                                   name="product" value="{{ product }}" data-filter-type="product"
-                                   {% if product in selected_products %}checked{% endif %}>
-                            <label class="form-check-label" for="product-{{ loop.index }}">{{ product }}</label>
-                        </div>
-                        {% endfor %}
-                    </div>
-                </div>
-            </div>
-            {% else %}
-            <div class="col-md-4">
-                <div class="form-group">
-                    <div class="filter-header" data-filter-type="category">
-                        <span>Filter by Product</span>
-                        <span class="icon">▼</span>
-                    </div>
-                    <div class="filter-summary" id="categorySummary">
-                        {% if selected_categories %}
-                            {% if selected_categories|length <= 2 %}
-                                {{ selected_categories|join(', ') }}
-                            {% else %}
-                                {{ selected_categories|length }} products selected
-                            {% endif %}
-                        {% else %}
-                            All Products
-                        {% endif %}
-                    </div>
-                    <div class="filter-container border rounded p-2" data-filter-type="category">
-                        <div class="form-check">
-                            <input class="form-check-input filter-all" type="checkbox" id="categoryFilterAll" 
-                                   {% if not selected_categories %}checked{% endif %} data-filter-type="category">
-                            <label class="form-check-label" for="categoryFilterAll">All Products</label>
-                        </div>
-                        {% for category in categories %}
-                        <div class="form-check">
-                            <input class="form-check-input filter-item" type="checkbox" id="category-{{ loop.index }}" 
-                                   name="category" value="{{ category }}" data-filter-type="category"
-                                   {% if category in selected_categories %}checked{% endif %}>
-                            <label class="form-check-label" for="category-{{ loop.index }}">{{ category }}</label>
-                        </div>
-                        {% endfor %}
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="form-group">
-                    <div class="filter-header" data-filter-type="status">
-                        <span>Filter by Status</span>
-                        <span class="icon">▼</span>
-                    </div>
-                    <div class="filter-summary" id="statusSummary">
-                        {% if selected_statuses %}
-                            {% if selected_statuses|length <= 2 %}
-                                {{ selected_statuses|join(', ') }}
-                            {% else %}
-                                {{ selected_statuses|length }} statuses selected
-                            {% endif %}
-                        {% else %}
-                            All Statuses
-                        {% endif %}
-                    </div>
-                    <div class="filter-container border rounded p-2" data-filter-type="status">
-                        <div class="form-check">
-                            <input class="form-check-input filter-all" type="checkbox" id="statusFilterAll" 
-                                   {% if not selected_statuses %}checked{% endif %} data-filter-type="status">
-                            <label class="form-check-label" for="statusFilterAll">All Statuses</label>
-                        </div>
-                        {% for status in statuses %}
-                        <div class="form-check">
-                            <input class="form-check-input filter-item" type="checkbox" id="status-{{ loop.index }}" 
-                                   name="status" value="{{ status }}" data-filter-type="status"
-                                   {% if status in selected_statuses %}checked{% endif %}>
-                            <label class="form-check-label" for="status-{{ loop.index }}">{{ status }}</label>
-                        </div>
-                        {% endfor %}
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="form-group">
-                    <div class="filter-header" data-filter-type="type">
-                        <span>Filter by Type</span>
-                        <span class="icon">▼</span>
-                    </div>
-                    <div class="filter-summary" id="typeSummary">
-                        {% if selected_types %}
-                            {% if selected_types|length <= 2 %}
-                                {{ selected_types|join(', ') }}
-                            {% else %}
-                                {{ selected_types|length }} types selected
-                            {% endif %}
-                        {% else %}
-                            All Types
-                        {% endif %}
-                    </div>
-                    <div class="filter-container border rounded p-2" data-filter-type="type">
-                        <div class="form-check">
-                            <input class="form-check-input filter-all" type="checkbox" id="typeFilterAll" 
-                                   {% if not selected_types %}checked{% endif %} data-filter-type="type">
-                            <label class="form-check-label" for="typeFilterAll">All Types</label>
-                        </div>
-                        {% for type in types %}
-                        <div class="form-check">
-                            <input class="form-check-input filter-item" type="checkbox" id="type-{{ loop.index }}" 
-                                   name="type" value="{{ type }}" data-filter-type="type"
-                                   {% if type in selected_types %}checked{% endif %}>
-                            <label class="form-check-label" for="type-{{ loop.index }}">{{ type }}</label>
-                        </div>
-                        {% endfor %}
-                    </div>
-                </div>
-            </div>
-            {% endif %}
-            <div class="col-md-4 mt-4">
-                <button type="submit" class="btn btn-primary">Apply Filters</button>
-                <a href="{{ url_for(provider + '_updates') }}" class="btn btn-outline-secondary">Reset</a>
+<div class="container mt-4">
+    <h1 class="mb-3">{{ provider.capitalize() }} Updates</h1>
+    
+    <div class="card mb-4">
+        <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+            <h2 class="h5 mb-0">
+                <i class="fas fa-filter me-2"></i>Filters
+            </h2>
+            <div>
+                <button type="submit" form="filterForm" class="btn btn-sm btn-primary">
+                    <i class="fas fa-check me-1"></i>Apply Filters
+                </button>
+                <a href="{{ url_for(provider + '_updates') }}" class="btn btn-sm btn-outline-light">
+                    <i class="fas fa-times me-1"></i>Clear Filters
+                </a>
             </div>
         </div>
-    </form>
+        <div class="card-body py-3">
+            <form id="filterForm" action="{{ url_for(provider + '_updates') }}" method="get">
+                <div class="row g-2">
+                    {% if provider == 'aws' %}
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <div class="filter-header d-flex justify-content-between align-items-center" data-filter-type="category">
+                                <label class="form-label small mb-1">Filter by Product</label>
+                                <span class="icon small">▼</span>
+                            </div>
+                            <div class="filter-summary small text-muted mb-1" id="categorySummary">
+                                {% if selected_categories %}
+                                    {% if selected_categories|length <= 2 %}
+                                        {{ selected_categories|join(', ') }}
+                                    {% else %}
+                                        {{ selected_categories|length }} products selected
+                                    {% endif %}
+                                {% else %}
+                                    All Products
+                                {% endif %}
+                            </div>
+                            <div class="filter-container border rounded p-2 shadow-sm" data-filter-type="category" style="display: none; max-height: 200px; overflow-y: auto;">
+                                <div class="form-check">
+                                    <input class="form-check-input filter-all" type="checkbox" id="categoryFilterAll" 
+                                           {% if not selected_categories %}checked{% endif %} data-filter-type="category">
+                                    <label class="form-check-label small" for="categoryFilterAll">All Products</label>
+                                </div>
+                                {% for category in categories %}
+                                <div class="form-check">
+                                    <input class="form-check-input filter-item" type="checkbox" id="category-{{ loop.index }}" 
+                                           name="category" value="{{ category }}" data-filter-type="category"
+                                           {% if category in selected_categories %}checked{% endif %}>
+                                    <label class="form-check-label small" for="category-{{ loop.index }}">{{ category }}</label>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <div class="filter-header d-flex justify-content-between align-items-center" data-filter-type="category">
+                                <label class="form-label small mb-1">Filter by Product</label>
+                                <span class="icon small">▼</span>
+                            </div>
+                            <div class="filter-summary small text-muted mb-1" id="categorySummary">
+                                {% if selected_categories %}
+                                    {% if selected_categories|length <= 2 %}
+                                        {{ selected_categories|join(', ') }}
+                                    {% else %}
+                                        {{ selected_categories|length }} products selected
+                                    {% endif %}
+                                {% else %}
+                                    All Products
+                                {% endif %}
+                            </div>
+                            <div class="filter-container border rounded p-2 shadow-sm" data-filter-type="category" style="display: none; max-height: 200px; overflow-y: auto;">
+                                <div class="form-check">
+                                    <input class="form-check-input filter-all" type="checkbox" id="categoryFilterAll" 
+                                           {% if not selected_categories %}checked{% endif %} data-filter-type="category">
+                                    <label class="form-check-label small" for="categoryFilterAll">All Products</label>
+                                </div>
+                                {% for category in categories %}
+                                <div class="form-check">
+                                    <input class="form-check-input filter-item" type="checkbox" id="category-{{ loop.index }}" 
+                                           name="category" value="{{ category }}" data-filter-type="category"
+                                           {% if category in selected_categories %}checked{% endif %}>
+                                    <label class="form-check-label small" for="category-{{ loop.index }}">{{ category }}</label>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <div class="filter-header d-flex justify-content-between align-items-center" data-filter-type="status">
+                                <label class="form-label small mb-1">Filter by Status</label>
+                                <span class="icon small">▼</span>
+                            </div>
+                            <div class="filter-summary small text-muted mb-1" id="statusSummary">
+                                {% if selected_statuses %}
+                                    {% if selected_statuses|length <= 2 %}
+                                        {{ selected_statuses|join(', ') }}
+                                    {% else %}
+                                        {{ selected_statuses|length }} statuses selected
+                                    {% endif %}
+                                {% else %}
+                                    All Statuses
+                                {% endif %}
+                            </div>
+                            <div class="filter-container border rounded p-2 shadow-sm" data-filter-type="status" style="display: none; max-height: 200px; overflow-y: auto;">
+                                <div class="form-check">
+                                    <input class="form-check-input filter-all" type="checkbox" id="statusFilterAll" 
+                                           {% if not selected_statuses %}checked{% endif %} data-filter-type="status">
+                                    <label class="form-check-label small" for="statusFilterAll">All Statuses</label>
+                                </div>
+                                {% for status in statuses %}
+                                <div class="form-check">
+                                    <input class="form-check-input filter-item" type="checkbox" id="status-{{ loop.index }}" 
+                                           name="status" value="{{ status }}" data-filter-type="status"
+                                           {% if status in selected_statuses %}checked{% endif %}>
+                                    <label class="form-check-label small" for="status-{{ loop.index }}">{{ status }}</label>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-group">
+                            <div class="filter-header d-flex justify-content-between align-items-center" data-filter-type="type">
+                                <label class="form-label small mb-1">Filter by Type</label>
+                                <span class="icon small">▼</span>
+                            </div>
+                            <div class="filter-summary small text-muted mb-1" id="typeSummary">
+                                {% if selected_types %}
+                                    {% if selected_types|length <= 2 %}
+                                        {{ selected_types|join(', ') }}
+                                    {% else %}
+                                        {{ selected_types|length }} types selected
+                                    {% endif %}
+                                {% else %}
+                                    All Types
+                                {% endif %}
+                            </div>
+                            <div class="filter-container border rounded p-2 shadow-sm" data-filter-type="type" style="display: none; max-height: 200px; overflow-y: auto;">
+                                <div class="form-check">
+                                    <input class="form-check-input filter-all" type="checkbox" id="typeFilterAll" 
+                                           {% if not selected_types %}checked{% endif %} data-filter-type="type">
+                                    <label class="form-check-label small" for="typeFilterAll">All Types</label>
+                                </div>
+                                {% for type in types %}
+                                <div class="form-check">
+                                    <input class="form-check-input filter-item" type="checkbox" id="type-{{ loop.index }}" 
+                                           name="type" value="{{ type }}" data-filter-type="type"
+                                           {% if type in selected_types %}checked{% endif %}>
+                                    <label class="form-check-label small" for="type-{{ loop.index }}">{{ type }}</label>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+    </div>
 
     <div class="list-group">
         {% for update in updates %}
@@ -293,72 +353,78 @@
                 <h5 class="mb-0">{{ update.title }}</h5>
                 <small class="text-muted">{{ update.published_date.strftime('%b %d, %Y') }}</small>
             </div>
-            <p class="description">
-                {% set sentences = update.description.split('. ') %}
-                {% if sentences|length > 3 %}
-                    {{ sentences[:3]|join('. ') }}...
-                {% else %}
-                    {{ update.description }}
-                {% endif %}
-            </p>
+            
+            <p class="mb-2">{{ update.description|striptags|truncate(200) }}</p>
             
             <!-- Metadata Section -->
-            <div class="metadata">
+            <div class="d-flex flex-wrap gap-2 mb-2">
                 {% if provider == 'azure' %}
                     {% if update.product_names %}
-                        <div class="product-tags">
-                            <span class="label">Products:</span>
-                            {% for product in update.product_names %}
-                                <span class="badge bg-primary">{{ product }}</span>
-                            {% endfor %}
+                        <div class="metadata-group">
+                            <span class="badge rounded-pill bg-primary">
+                                <i class="fas fa-cube me-1"></i>{{ update.product_names|length }} Product{% if update.product_names|length > 1 %}s{% endif %}
+                            </span>
+                            <div class="metadata-details shadow-sm">
+                                {% for product in update.product_names %}
+                                    <span class="badge bg-primary">{{ product }}</span>
+                                {% endfor %}
+                            </div>
                         </div>
                     {% endif %}
                     
                     {% if update.status %}
-                        <div class="status-tags">
-                            <span class="label">Status:</span>
-                            {% for status_tag in update.status %}
-                                <span class="badge bg-success">{{ status_tag }}</span>
-                            {% endfor %}
+                        <div class="metadata-group">
+                            <span class="badge rounded-pill bg-success">
+                                <i class="fas fa-tag me-1"></i>{{ update.status|join(', ') }}
+                            </span>
                         </div>
                     {% endif %}
                     
                     {% if update.update_types %}
-                        <div class="type-tags">
-                            <span class="label">Types:</span>
-                            {% for type_tag in update.update_types %}
-                                <span class="badge bg-secondary">{{ type_tag }}</span>
-                            {% endfor %}
+                        <div class="metadata-group">
+                            <span class="badge rounded-pill bg-secondary">
+                                <i class="fas fa-list me-1"></i>{{ update.update_types|length }} Type{% if update.update_types|length > 1 %}s{% endif %}
+                            </span>
+                            <div class="metadata-details shadow-sm">
+                                {% for type_tag in update.update_types %}
+                                    <span class="badge bg-secondary">{{ type_tag }}</span>
+                                {% endfor %}
+                            </div>
                         </div>
                     {% endif %}
                 {% else %}
                     {% if update.product_name %}
-                        <div class="product-tag">
-                            <span class="label">Product:</span>
-                            <span class="badge bg-primary">{{ update.product_name }}</span>
+                        <div class="metadata-group">
+                            <span class="badge rounded-pill bg-primary">
+                                <i class="fas fa-cube me-1"></i>{{ update.product_name }}
+                            </span>
                         </div>
                     {% endif %}
                     
                     {% if update.categories %}
-                        <div class="category-tags">
-                            <span class="label">Categories:</span>
-                            {% for category in update.categories %}
-                                <span class="badge bg-secondary">{{ category }}</span>
-                            {% endfor %}
+                        <div class="metadata-group">
+                            <span class="badge rounded-pill bg-secondary">
+                                <i class="fas fa-tags me-1"></i>{{ update.categories|length }} Categories
+                            </span>
+                            <div class="metadata-details shadow-sm">
+                                {% for category in update.categories %}
+                                    <span class="badge bg-secondary">{{ category }}</span>
+                                {% endfor %}
+                            </div>
                         </div>
                     {% endif %}
                 {% endif %}
             </div>
             
-            <div class="mt-2">
-                <button type="button" class="btn btn-sm btn-outline-primary btn-preview" 
+            <div class="d-flex justify-content-end mt-2">
+                <button class="btn btn-sm btn-outline-primary me-2 btn-preview" 
                         data-bs-toggle="modal" 
                         data-bs-target="#previewModal" 
                         data-title="{{ update.title }}" 
                         data-description="{{ update.description }}" 
                         data-date="{{ update.published_date.strftime('%b %d, %Y') }}" 
-                        data-url="{{ update.url }}" 
                         data-provider="{{ provider }}" 
+                        data-url="{{ update.url }}" 
                         data-product="{{ update.product_name or '' }}" 
                         data-categories="{{ update.categories|tojson }}" 
                         data-types="{{ update.update_types|tojson }}"

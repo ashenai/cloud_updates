@@ -190,14 +190,14 @@ def init_routes(app):
     def aws_updates(page=1):
         """Show AWS updates."""
         # Get filter parameters
-        selected_products = request.args.getlist('product')
+        selected_categories = request.args.getlist('category')
         
         # Build query
         query = Update.query.filter_by(provider='aws')
         
         # Apply product filter if selected
-        if selected_products:
-            query = query.filter(Update.product_name.in_(selected_products))
+        if selected_categories:
+            query = query.filter(Update.product_name.in_(selected_categories))
         
         # Get paginated results
         updates = query.order_by(Update.published_date.desc()).paginate(
@@ -228,8 +228,8 @@ def init_routes(app):
             provider='aws',
             page=page,
             total_pages=total_pages,
-            products=products,
-            selected_products=selected_products
+            categories=products,
+            selected_categories=selected_categories
         )
 
     @app.route('/azure-updates')
