@@ -46,7 +46,12 @@ source venv/bin/activate  # Linux/Mac
 pip install -r requirements.txt
 ```
 
-4. Run the application:
+4. Initialize the Database
+flask db init
+flask db migrate -m "Initial migration"
+flask db upgrade
+
+5. Run the application:
 ```bash
 python run.py
 ```
