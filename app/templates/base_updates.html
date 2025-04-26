@@ -426,8 +426,8 @@
                         data-provider="{{ provider }}" 
                         data-url="{{ update.url }}" 
                         data-product="{{ update.product_name or '' }}" 
-                        data-categories="{{ update.categories|tojson }}" 
-                        data-types="{{ update.update_types|tojson }}"
+                        data-categories="{{ update.categories|tojson if provider == 'aws' else update.product_names|tojson }}" 
+                        data-types="{{ update.update_types|tojson if provider == 'azure' else update.update_types|tojson }}"
                         data-status="{{ update.status|tojson }}">
                     Preview
                 </button>
@@ -497,6 +497,134 @@ document.addEventListener('DOMContentLoaded', function() {
     var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
         return new bootstrap.Tooltip(tooltipTriggerEl)
     });
+    
+    // Get the modal element
+    const previewModalEl = document.getElementById('previewModal');
+    
+    // Only initialize if the modal exists
+    if (previewModalEl) {
+        // Initialize the preview modal
+        const previewModal = new bootstrap.Modal(previewModalEl);
+        
+        // Handle preview button clicks
+        const previewButtons = document.querySelectorAll('.btn-preview');
+        previewButtons.forEach(button => {
+            button.addEventListener('click', function(e) {
+                e.preventDefault();
+                
+                // Get data from button attributes
+                const title = this.getAttribute('data-title');
+                const description = this.getAttribute('data-description');
+                const date = this.getAttribute('data-date');
+                const provider = this.getAttribute('data-provider');
+                const url = this.getAttribute('data-url');
+                const product = this.getAttribute('data-product');
+                
+                // Parse JSON data with error handling
+                let categories = [];
+                try {
+                    categories = JSON.parse(this.getAttribute('data-categories') || '[]');
+                } catch (e) {
+                    console.error('Error parsing categories:', e);
+                }
+                
+                let types = [];
+                try {
+                    types = JSON.parse(this.getAttribute('data-types') || '[]');
+                } catch (e) {
+                    console.error('Error parsing types:', e);
+                }
+                
+                let status = [];
+                try {
+                    status = JSON.parse(this.getAttribute('data-status') || '[]');
+                } catch (e) {
+                    console.error('Error parsing status:', e);
+                }
+                
+                console.log('Preview data:', {
+                    title, provider, url, product, 
+                    categories, types, status
+                });
+                
+                // Set modal content
+                document.getElementById('previewTitle').textContent = title;
+                document.getElementById('previewDescription').innerHTML = description;
+                
+                // Set read more link
+                const readMoreBtn = document.querySelector('.btn-read-more');
+                if (readMoreBtn) {
+                    readMoreBtn.href = url;
+                    
+                    // Add event listener to close modal when "Read Full Update" is clicked
+                    readMoreBtn.onclick = function() {
+                        // Close the modal
+                        previewModal.hide();
+                        
+                        // Return true to continue with the default link behavior (opening the URL)
+                        return true;
+                    };
+                }
+                
+                // Clear previous metadata
+                const metaInfo = document.querySelector('#previewModal .meta-info');
+                if (metaInfo) {
+                    metaInfo.innerHTML = '';
+                    
+                    // Add date and provider
+                    const dateDiv = document.createElement('div');
+                    dateDiv.className = 'meta-item date';
+                    dateDiv.innerHTML = `<span class="meta-label">Published:</span> <span class="meta-value">${date}</span>`;
+                    metaInfo.appendChild(dateDiv);
+                    
+                    const providerDiv = document.createElement('div');
+                    providerDiv.className = 'meta-item provider';
+                    providerDiv.innerHTML = `<span class="meta-label">Provider:</span> <span class="meta-value">${provider}</span>`;
+                    metaInfo.appendChild(providerDiv);
+                    
+                    // Add product info based on provider
+                    if (provider === 'aws' && product) {
+                        const productDiv = document.createElement('div');
+                        productDiv.className = 'meta-item product';
+                        productDiv.innerHTML = `<span class="meta-label">Product:</span> <span class="meta-value"><span class="badge bg-primary">${product}</span></span>`;
+                        metaInfo.appendChild(productDiv);
+                    } else if (provider === 'azure') {
+                        // Add products for Azure
+                        if (categories && categories.length > 0) {
+                            const productsDiv = document.createElement('div');
+                            productsDiv.className = 'meta-item products';
+                            productsDiv.innerHTML = `<span class="meta-label">Products:</span> <span class="meta-value">${categories.map(c => `<span class="badge bg-primary">${c}</span>`).join(' ')}</span>`;
+                            metaInfo.appendChild(productsDiv);
+                        }
+                        
+                        // Add status for Azure
+                        if (status && status.length > 0) {
+                            const statusDiv = document.createElement('div');
+                            statusDiv.className = 'meta-item status';
+                            statusDiv.innerHTML = `<span class="meta-label">Status:</span> <span class="meta-value">${status.map(s => `<span class="badge bg-success">${s}</span>`).join(' ')}</span>`;
+                            metaInfo.appendChild(statusDiv);
+                        }
+                        
+                        // Add types for Azure
+                        if (types && types.length > 0) {
+                            const typesDiv = document.createElement('div');
+                            typesDiv.className = 'meta-item types';
+                            typesDiv.innerHTML = `<span class="meta-label">Types:</span> <span class="meta-value">${types.map(t => `<span class="badge bg-secondary">${t}</span>`).join(' ')}</span>`;
+                            metaInfo.appendChild(typesDiv);
+                        }
+                    } else if (categories && categories.length > 0) {
+                        const categoriesDiv = document.createElement('div');
+                        categoriesDiv.className = 'meta-item categories';
+                        categoriesDiv.innerHTML = `<span class="meta-label">Categories:</span> <span class="meta-value">${categories.map(c => `<span class="badge bg-secondary">${c}</span>`).join(' ')}</span>`;
+                        metaInfo.appendChild(categoriesDiv);
+                    }
+                }
+                
+                // Show the modal
+                previewModal.show();
+            });
+        });
+    }
     
     // Filter dropdowns
     const filterHeaders = document.querySelectorAll('.filter-header');
@@ -576,84 +704,6 @@ document.addEventListener('DOMContentLoaded', function() {
             summaryElement.textContent = `${checkedItems.length} ${filterType}s selected`;
         }
     }
-    
-    // Initialize preview modal
-    const previewModal = new bootstrap.Modal(document.getElementById('previewModal'));
-    
-    // Handle preview button clicks
-    const previewButtons = document.querySelectorAll('.btn-preview');
-    previewButtons.forEach(button => {
-        button.addEventListener('click', function() {
-            const title = this.dataset.title;
-            const description = this.dataset.description;
-            const date = this.dataset.date;
-            const provider = this.dataset.provider;
-            const url = this.dataset.url;
-            const product = this.dataset.product;
-            const categories = JSON.parse(this.dataset.categories || '[]');
-            const types = JSON.parse(this.dataset.types || '[]');
-            const status = JSON.parse(this.dataset.status || '[]');
-            
-            // Set modal content
-            document.getElementById('previewTitle').textContent = title;
-            document.getElementById('previewDescription').innerHTML = description;
-            document.querySelector('.btn-read-more').href = url;
-            
-            // Clear previous metadata
-            const metaInfo = document.querySelector('#previewModal .meta-info');
-            metaInfo.innerHTML = '';
-            
-            // Add date and provider
-            const dateDiv = document.createElement('div');
-            dateDiv.className = 'meta-item date';
-            dateDiv.innerHTML = `<span class="meta-label">Published:</span> <span class="meta-value">${date}</span>`;
-            metaInfo.appendChild(dateDiv);
-            
-            const providerDiv = document.createElement('div');
-            providerDiv.className = 'meta-item provider';
-            providerDiv.innerHTML = `<span class="meta-label">Provider:</span> <span class="meta-value">${provider}</span>`;
-            metaInfo.appendChild(providerDiv);
-            
-            // Add product info
-            if (provider === 'aws' && product) {
-                const productDiv = document.createElement('div');
-                productDiv.className = 'meta-item product';
-                productDiv.innerHTML = `<span class="meta-label">Product:</span> <span class="meta-value"><span class="badge bg-primary">${product}</span></span>`;
-                metaInfo.appendChild(productDiv);
-            } else if (provider === 'azure') {
-                // Add products
-                if (categories && categories.length > 0) {
-                    const productsDiv = document.createElement('div');
-                    productsDiv.className = 'meta-item products';
-                    productsDiv.innerHTML = `<span class="meta-label">Products:</span> <span class="meta-value">${categories.map(c => `<span class="badge bg-primary">${c}</span>`).join(' ')}</span>`;
-                    metaInfo.appendChild(productsDiv);
-                }
-                
-                // Add status
-                if (status && status.length > 0) {
-                    const statusDiv = document.createElement('div');
-                    statusDiv.className = 'meta-item status';
-                    statusDiv.innerHTML = `<span class="meta-label">Status:</span> <span class="meta-value">${status.map(s => `<span class="badge bg-success">${s}</span>`).join(' ')}</span>`;
-                    metaInfo.appendChild(statusDiv);
-                }
-                
-                // Add types
-                if (types && types.length > 0) {
-                    const typesDiv = document.createElement('div');
-                    typesDiv.className = 'meta-item types';
-                    typesDiv.innerHTML = `<span class="meta-label">Types:</span> <span class="meta-value">${types.map(t => `<span class="badge bg-secondary">${t}</span>`).join(' ')}</span>`;
-                    metaInfo.appendChild(typesDiv);
-                }
-            } else if (categories && categories.length > 0) {
-                const categoriesDiv = document.createElement('div');
-                categoriesDiv.className = 'meta-item categories';
-                categoriesDiv.innerHTML = `<span class="meta-label">Categories:</span> <span class="meta-value">${categories.map(c => `<span class="badge bg-secondary">${c}</span>`).join(' ')}</span>`;
-                metaInfo.appendChild(categoriesDiv);
-            }
-            
-            previewModal.show();
-        });
-    });
     
     // Form submission handling
     const filterForm = document.getElementById('filterForm');
