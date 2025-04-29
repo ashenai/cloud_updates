@@ -1,0 +1,105 @@
+Deploying Cloud Updates App
+----------------------------
+
+Deployment Environment
+------------------------
+Hosting provider: IONOS
+VM type: virtual private server (VPS)
+Console: Plesk
+http server: nginx
+App environment: python virtual environment
+WSGI server for python flask app: uwsgi
+Source repo: Github
+LLM used: Anthropic
+
+DOMAIN=<domain where app is hosted>. Currently we are using 'shen-ai.cloud' domain
+USER_HOME_DIR=/var/home/vhosts/$DOMAIN
+APP_DIR=$USER_HOME_DIR/<app_name_folder>. Our app name folder is 'cloud_updates'
+
+Steps
+------
+Login to VPS into command line shell
+------------------------------------
+
+Add the following to the server block in /etc/nginx/plesk.conf.d/vhosts/$DOMAIN.conf file
+(you will need to run the edit command as 'sudo' 
+
+        location /cloud_updates/ {
+                include uwsgi_params;
+                uwsgi_param SCRIPT_NAME /cloud_updates;
+                uwsgi_pass unix:/tmp/cloud_updates.sock;
+        }
+
+
+sudo systemctl reload nginx
+sudo systemctl restart nginx
+
+cd $USER_HOME_DIR 
+
+Create & activate python virtual env:
+------------------------------------
+python3 -m venv venv
+
+Activate Python env:
+
+source venv/bin/activate
+
+Create 'cloud_updates' in $USER_HOME_DIR
+----------------------------------------
+
+cd 'cloud_updates'
+git clone https://www.github.com/ashenai/cloud_updates.git
+pip install -r requirements.txt 
+pip install uwsgi
+
+Initialize the Database
+-----------------------
+flask db init
+flask db migrate -m "Initial migration"
+flask db upgrade
+create/Edit uwsgi.ini as shown below
+note: <domain> in our case is shen-ai.cloud
+
+contents--------
+[uwsgi]
+socket = /tmp/cloud_updates.sock
+chmod-socket = 666
+master = true
+processes = 1
+threads = 2
+chdir = /var/www/vhosts/<domain>/cloud_updates
+#wsgi-file = wsgi.py
+virtualenv = /var/www/vhosts/<domain>/venv
+manage-script-name = true
+mount = /cloud_updates=wsgi:app
+
+;flask env vars
+env = FLASK_ENV=development
+env = ANTHROPIC_API_KEY=<enter Anthropic API key)
+end contents-----
+
+create .env file
+
+contents--------
+# Flask configuration
+FLASK_APP=app
+FLASK_ENV=development
+SECRET_KEY=your-secret-key-here
+
+# Database configuration
+DATABASE_URL=sqlite:///$APP_DIR/instance/cloud_updates.db
+
+# API Keys
+#ANTHROPIC_API_KEY=<enter your Anthropic API key>
+end contents-----
+
+cd to $USER_HOME_DIR & create the script start_cloud_updates.sh 
+----------------------------------------------------------------
+contents-----
+#!/bin/bash
+cd /var/www/vhosts/shen-ai.cloud
+source venv/bin/activate
+nohup  /var/www/vhosts/$DOMAIN/venv/bin/uwsgi --ini uwsgi.ini --socket /tmp/cloud_updates.sock
+ --wsgi-file wsgi.py --callable app --single-interpreter --chmod-socket=666 &
+end contents-----
+

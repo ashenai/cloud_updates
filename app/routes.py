@@ -855,6 +855,10 @@ def init_routes(app):
             traceback.print_exc()
             return f"Error reprocessing Azure updates: {str(e)}"
 
+    @app.route('/health')
+    def health_check():
+        return jsonify({"status": "healthy", "timestamp": datetime.utcnow().isoformat()}), 200
+
     def get_week_start(dt):
         """Get the start of the week (Monday) for a given date/datetime."""
         # Convert to datetime if date
