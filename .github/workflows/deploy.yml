@@ -2,7 +2,7 @@ name: Deploy to IONOS VPS
 
 on:
   push:
-    branches: [ main ]
+    branches: [ master ]
   workflow_dispatch:
     inputs:
       environment:
@@ -153,120 +153,40 @@ jobs:
           retry-delay: 15s
           follow-redirect: true
 
-      - name: Notify Teams on Success
+      - name: Notify Discord on Success
         if: success()
-        uses: toko-bifrost/ms-teams-deploy-card@master
+        uses: sarisia/actions-status-discord@v1
         with:
-          webhook-uri: ${{ secrets.MS_TEAMS_WEBHOOK_URL }}
-          title: '🚀 Deployment Successful'
-          deployment-env: ${{ github.event.inputs.environment || 'production' }}
-          status: success
-          cards: |
-            {
-              "@type": "MessageCard",
-              "@context": "https://schema.org/extensions",
-              "summary": "Cloud Updates Deployment Successful",
-              "themeColor": "2E8B57",
-              "sections": [
-                {
-                  "activityTitle": "🚀 Cloud Updates Deployment Successful",
-                  "facts": [
-                    {
-                      "name": "Version",
-                      "value": "${{ steps.version.outputs.version }}"
-                    },
-                    {
-                      "name": "Environment",
-                      "value": "${{ github.event.inputs.environment || 'production' }}"
-                    },
-                    {
-                      "name": "Application URL",
-                      "value": "${{ env.APP_URL }}"
-                    },
-                    {
-                      "name": "Deployed By",
-                      "value": "${{ github.actor }}"
-                    },
-                    {
-                      "name": "Commit",
-                      "value": "${{ github.sha }}"
-                    }
-                  ],
-                  "markdown": true
-                }
-              ],
-              "potentialAction": [
-                {
-                  "@type": "OpenUri",
-                  "name": "View Application",
-                  "targets": [
-                    {
-                      "os": "default",
-                      "uri": "${{ env.APP_URL }}"
-                    }
-                  ]
-                },
-                {
-                  "@type": "OpenUri",
-                  "name": "View Workflow",
-                  "targets": [
-                    {
-                      "os": "default",
-                      "uri": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-                    }
-                  ]
-                }
-              ]
-            }
+          webhook: ${{ secrets.DISCORD_WEBHOOK }}
+          title: "✅ Deployment Successful"
+          description: |
+            Successfully deployed Cloud Updates to production
+            
+            **Version:** ${{ steps.version.outputs.version }}
+            **Environment:** ${{ github.event.inputs.environment || 'production' }}
+            **Deployed By:** ${{ github.actor }}
+            **Commit:** ${{ github.sha }}
+            
+            [View Application](${{ env.APP_URL }}) | [View Workflow](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+          color: 0x2ECC71
+          username: GitHub Actions
+          avatar_url: https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png
 
-      - name: Notify Teams on Failure
+      - name: Notify Discord on Failure
         if: failure()
-        uses: toko-bifrost/ms-teams-deploy-card@master
+        uses: sarisia/actions-status-discord@v1
         with:
-          webhook-uri: ${{ secrets.MS_TEAMS_WEBHOOK_URL }}
-          title: '❌ Deployment Failed'
-          deployment-env: ${{ github.event.inputs.environment || 'production' }}
-          status: failure
-          cards: |
-            {
-              "@type": "MessageCard",
-              "@context": "https://schema.org/extensions",
-              "summary": "Cloud Updates Deployment Failed",
-              "themeColor": "DC3545",
-              "sections": [
-                {
-                  "activityTitle": "❌ Cloud Updates Deployment Failed",
-                  "facts": [
-                    {
-                      "name": "Version",
-                      "value": "${{ steps.version.outputs.version }}"
-                    },
-                    {
-                      "name": "Environment",
-                      "value": "${{ github.event.inputs.environment || 'production' }}"
-                    },
-                    {
-                      "name": "Deployed By",
-                      "value": "${{ github.actor }}"
-                    },
-                    {
-                      "name": "Commit",
-                      "value": "${{ github.sha }}"
-                    }
-                  ],
-                  "markdown": true
-                }
-              ],
-              "potentialAction": [
-                {
-                  "@type": "OpenUri",
-                  "name": "View Workflow",
-                  "targets": [
-                    {
-                      "os": "default",
-                      "uri": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-                    }
-                  ]
-                }
-              ]
-            }
+          webhook: ${{ secrets.DISCORD_WEBHOOK }}
+          title: "❌ Deployment Failed"
+          description: |
+            Failed to deploy Cloud Updates to production
+            
+            **Version:** ${{ steps.version.outputs.version }}
+            **Environment:** ${{ github.event.inputs.environment || 'production' }}
+            **Deployed By:** ${{ github.actor }}
+            **Commit:** ${{ github.sha }}
+            
+            [View Workflow](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+          color: 0xE74C3C
+          username: GitHub Actions
+          avatar_url: https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png
