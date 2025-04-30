@@ -1,9 +1,8 @@
 name: Deploy to IONOS VPS
 
 on:
-
   push:
-    branches: [ master ]
+    branches: [ main ]
   workflow_dispatch:
     inputs:
       environment:
@@ -88,7 +87,7 @@ jobs:
 
   deploy:
     needs: test
-    if: github.ref == 'refs/heads/master'
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment:
@@ -118,7 +117,6 @@ jobs:
           host: ${{ secrets.IONOS_HOST }}
           username: ${{ secrets.IONOS_USERNAME }}
           password: ${{ secrets.IONOS_PASSWORD }}
-          script_stop: true
           command_timeout: "10m"
           envs: GITHUB_REPOSITORY
           script: |
