@@ -43,10 +43,12 @@ jobs:
           echo "coverage=$(python -c "import xml.etree.ElementTree as ET; tree = ET.parse('coverage.xml'); root = tree.getroot(); print(root.attrib['line-rate'])")" >> $GITHUB_OUTPUT
           
       - name: Upload coverage reports
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v5
         with:
           file: ./coverage.xml
           fail_ci_if_error: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+          slug: ashenai/cloud_updates
 
       - name: Notify Discord on Test Success
         if: success()
