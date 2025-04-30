@@ -110,7 +110,7 @@ jobs:
           tag_name: ${{ steps.version.outputs.version }}
           generate_release_notes: true
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.PAT }}
 
       - name: Deploy to IONOS VPS
         uses: appleboy/ssh-action@master
