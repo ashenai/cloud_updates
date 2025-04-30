@@ -2,7 +2,7 @@ name: Deploy to IONOS VPS
 
 on:
   push:
-    branches: [ master ]
+    branches: [ main ]
   workflow_dispatch:
     inputs:
       environment:
@@ -36,17 +36,53 @@ jobs:
           pip install -r requirements.txt pytest pytest-cov
           
       - name: Run tests with coverage
+        id: tests
         run: |
           pytest --cov=app --cov-report=xml
+          echo "coverage=$(python -c "import xml.etree.ElementTree as ET; tree = ET.parse('coverage.xml'); root = tree.getroot(); print(root.attrib['line-rate'])")" >> $GITHUB_OUTPUT
           
       - name: Upload coverage reports
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v3
         with:
           file: ./coverage.xml
           fail_ci_if_error: true
-          token: ${{ secrets.CODECOV_TOKEN }}
-          slug: ashenai/cloud_updates
- 
+
+      - name: Notify Discord on Test Success
+        if: success()
+        uses: sarisia/actions-status-discord@v1
+        with:
+          webhook: ${{ secrets.DISCORD_WEBHOOK }}
+          title: "✅ Tests Passed"
+          description: |
+            All tests passed successfully!
+            
+            **Coverage:** ${{ steps.tests.outputs.coverage }}%
+            **Branch:** ${{ github.ref_name }}
+            **Commit:** ${{ github.sha }}
+            
+            [View Test Results](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+          color: 0x2ECC71
+          username: GitHub Actions
+          avatar_url: https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png
+
+      - name: Notify Discord on Test Failure
+        if: failure()
+        uses: sarisia/actions-status-discord@v1
+        with:
+          webhook: ${{ secrets.DISCORD_WEBHOOK }}
+          title: "❌ Tests Failed"
+          description: |
+            Tests failed to pass!
+            
+            **Branch:** ${{ github.ref_name }}
+            **Commit:** ${{ github.sha }}
+            **Actor:** ${{ github.actor }}
+            
+            [View Test Results](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})
+          color: 0xE74C3C
+          username: GitHub Actions
+          avatar_url: https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png
+
   deploy:
     needs: test
     if: github.ref == 'refs/heads/main'
@@ -60,7 +96,7 @@ jobs:
       - uses: actions/checkout@v3
         with:
           fetch-depth: 0
-      
+          
       - name: Generate version tag
         id: version
         run: echo "version=$(date +'%Y.%m.%d')-$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
