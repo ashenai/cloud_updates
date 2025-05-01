@@ -176,13 +176,13 @@ jobs:
             do_sudo cp nginx/cloud_updates.conf /etc/nginx/conf.d/
             
             # Set correct permissions
-            do_sudo chown -R psaadm:psacln /var/www/vhosts/shen-ai.cloud/cloud_updates /var/www/vhosts/shen-ai.cloud/venv /var/www/vhosts/shen-ai.cloud/logs
+            do_sudo chown -R ashenai:psacln /var/www/vhosts/shen-ai.cloud/cloud_updates /var/www/vhosts/shen-ai.cloud/venv /var/www/vhosts/shen-ai.cloud/logs
             do_sudo chmod -R 750 /var/www/vhosts/shen-ai.cloud/cloud_updates /var/www/vhosts/shen-ai.cloud/venv
             do_sudo chmod -R 770 /var/www/vhosts/shen-ai.cloud/logs
             
             # Create and set permissions for uwsgi socket directory
             do_sudo mkdir -p /tmp/cloud_updates
-            do_sudo chown psaadm:psacln /tmp/cloud_updates
+            do_sudo chown ashenai:psacln /tmp/cloud_updates
             do_sudo chmod 750 /tmp/cloud_updates
             
             # Restart services
