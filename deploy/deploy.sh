@@ -50,9 +50,14 @@ cp "$APP_DIR/uwsgi.ini" /etc/uwsgi/apps-available/cloud_updates.ini
 ln -sf /etc/uwsgi/apps-available/cloud_updates.ini /etc/uwsgi/apps-enabled/
 
 # Set permissions
-chown -R psaserv:psacln "$APP_DIR" "$VENV_DIR" "$LOG_DIR"
+chown -R psaadm:psacln "$APP_DIR" "$VENV_DIR" "$LOG_DIR"
 chmod -R 750 "$APP_DIR" "$VENV_DIR"
 chmod -R 770 "$LOG_DIR"
+
+# Create and set permissions for uwsgi socket directory
+mkdir -p /tmp/cloud_updates
+chown psaadm:psacln /tmp/cloud_updates
+chmod 750 /tmp/cloud_updates
 
 # Restart services
 systemctl restart uwsgi

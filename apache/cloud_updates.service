@@ -3,7 +3,7 @@ Description=uWSGI Cloud Updates Application
 After=network.target
 
 [Service]
-User=psaserv
+User=psaadm
 Group=psacln
 RuntimeDirectory=cloud_updates
 WorkingDirectory=/var/www/vhosts/shen-ai.cloud/cloud_updates
