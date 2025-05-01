@@ -186,8 +186,7 @@ jobs:
             
             # Restart services
             do_sudo systemctl restart cloud_updates
-            do_sudo plesk bin nginx --reconfigure-domain shen-ai.cloud
-            do_sudo plesk bin nginx -r
+            do_sudo nginx -t && do_sudo nginx -s reload
 
       - name: Health Check
         uses: jtalk/url-health-check-action@v3

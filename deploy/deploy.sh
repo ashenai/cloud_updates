@@ -61,5 +61,4 @@ chmod 750 /tmp/cloud_updates
 
 # Restart services
 systemctl restart uwsgi
-plesk bin nginx --reconfigure-domain shen-ai.cloud
-plesk bin nginx -r
+nginx -t && nginx -s reload
