@@ -120,33 +120,38 @@ jobs:
           command_timeout: "10m"
           envs: GITHUB_REPOSITORY
           script: |
+            # Create a function to handle sudo commands with password
+            do_sudo() {
+              echo "${{ secrets.IONOS_PASSWORD }}" | sudo -S $@
+            }
+            
             # Create backup directory if it doesn't exist
-            sudo mkdir -p /var/www/vhosts/shen-ai.cloud/backups
-            sudo mkdir -p /var/www/vhosts/shen-ai.cloud/logs
+            do_sudo mkdir -p /var/www/vhosts/shen-ai.cloud/backups
+            do_sudo mkdir -p /var/www/vhosts/shen-ai.cloud/logs
             
             # Create uwsgi apps directory if it doesn't exist
-            sudo mkdir -p /etc/uwsgi/apps-available /etc/uwsgi/apps-enabled
+            do_sudo mkdir -p /etc/uwsgi/apps-available /etc/uwsgi/apps-enabled
             
             # Backup current version if exists
             if [ -d "/var/www/vhosts/shen-ai.cloud/cloud_updates" ]; then
-              sudo tar -czf "/var/www/vhosts/shen-ai.cloud/backups/backup_$(date +%Y%m%d_%H%M%S).tar.gz" -C /var/www/vhosts/shen-ai.cloud cloud_updates
+              do_sudo tar -czf "/var/www/vhosts/shen-ai.cloud/backups/backup_$(date +%Y%m%d_%H%M%S).tar.gz" -C /var/www/vhosts/shen-ai.cloud cloud_updates
             fi
             
             # Clone or update repository
             cd /var/www/vhosts/shen-ai.cloud
             if [ -d "cloud_updates" ]; then
               cd cloud_updates
-              sudo git fetch --all
-              sudo git reset --hard origin/main
+              do_sudo git fetch --all
+              do_sudo git reset --hard origin/main
             else
-              sudo git clone https://github.com/$GITHUB_REPOSITORY cloud_updates
+              do_sudo git clone https://github.com/$GITHUB_REPOSITORY cloud_updates
               cd cloud_updates
             fi
             
             # Set up virtual environment
-            sudo python3 -m venv /var/www/vhosts/shen-ai.cloud/venv
+            do_sudo python3 -m venv /var/www/vhosts/shen-ai.cloud/venv
             source /var/www/vhosts/shen-ai.cloud/venv/bin/activate
-            sudo pip install --no-cache-dir -r requirements.txt uwsgi
+            do_sudo pip install --no-cache-dir -r requirements.txt uwsgi
             
             # Initialize database if needed
             if [ ! -f "instance/cloud_updates.db" ]; then
@@ -154,35 +159,35 @@ jobs:
             fi
             
             # Copy configurations
-            sudo cp config.py.example config.py
-            sudo sed -i "s/DEBUG = True/DEBUG = False/" config.py
+            do_sudo cp config.py.example config.py
+            do_sudo sed -i "s/DEBUG = True/DEBUG = False/" config.py
             
             # Set up uwsgi configuration
-            sudo cp uwsgi.ini /etc/uwsgi/apps-available/cloud_updates.ini
-            sudo ln -sf /etc/uwsgi/apps-available/cloud_updates.ini /etc/uwsgi/apps-enabled/
+            do_sudo cp uwsgi.ini /etc/uwsgi/apps-available/cloud_updates.ini
+            do_sudo ln -sf /etc/uwsgi/apps-available/cloud_updates.ini /etc/uwsgi/apps-enabled/
             
             # Set up systemd service
-            sudo cp apache/cloud_updates.service /etc/systemd/system/
-            sudo systemctl daemon-reload
-            sudo systemctl enable cloud_updates
+            do_sudo cp apache/cloud_updates.service /etc/systemd/system/
+            do_sudo systemctl daemon-reload
+            do_sudo systemctl enable cloud_updates
             
             # Set up nginx configuration
-            sudo cp nginx/cloud_updates.conf /etc/nginx/conf.d/
+            do_sudo cp nginx/cloud_updates.conf /etc/nginx/conf.d/
             
             # Set correct permissions
-            sudo chown -R psaserv:psacln /var/www/vhosts/shen-ai.cloud/cloud_updates /var/www/vhosts/shen-ai.cloud/venv /var/www/vhosts/shen-ai.cloud/logs
-            sudo chmod -R 750 /var/www/vhosts/shen-ai.cloud/cloud_updates /var/www/vhosts/shen-ai.cloud/venv
-            sudo chmod -R 770 /var/www/vhosts/shen-ai.cloud/logs
+            do_sudo chown -R psaserv:psacln /var/www/vhosts/shen-ai.cloud/cloud_updates /var/www/vhosts/shen-ai.cloud/venv /var/www/vhosts/shen-ai.cloud/logs
+            do_sudo chmod -R 750 /var/www/vhosts/shen-ai.cloud/cloud_updates /var/www/vhosts/shen-ai.cloud/venv
+            do_sudo chmod -R 770 /var/www/vhosts/shen-ai.cloud/logs
             
             # Create and set permissions for uwsgi socket directory
-            sudo mkdir -p /tmp/cloud_updates
-            sudo chown psaserv:psacln /tmp/cloud_updates
-            sudo chmod 750 /tmp/cloud_updates
+            do_sudo mkdir -p /tmp/cloud_updates
+            do_sudo chown psaserv:psacln /tmp/cloud_updates
+            do_sudo chmod 750 /tmp/cloud_updates
             
             # Restart services
-            sudo systemctl restart cloud_updates
-            sudo plesk bin nginx --reconfigure-domain shen-ai.cloud
-            sudo plesk bin nginx -r
+            do_sudo systemctl restart cloud_updates
+            do_sudo plesk bin nginx --reconfigure-domain shen-ai.cloud
+            do_sudo plesk bin nginx -r
 
       - name: Health Check
         uses: jtalk/url-health-check-action@v3
