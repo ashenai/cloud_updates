@@ -87,7 +87,7 @@ jobs:
 
   deploy:
     needs: test
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment:
@@ -142,7 +142,7 @@ jobs:
             if [ -d "cloud_updates" ]; then
               cd cloud_updates
               do_sudo git fetch --all
-              do_sudo git reset --hard origin/main
+              do_sudo git reset --hard origin/master
             else
               do_sudo git clone https://github.com/$GITHUB_REPOSITORY cloud_updates
               cd cloud_updates
