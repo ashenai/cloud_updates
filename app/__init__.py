@@ -49,12 +49,25 @@ def create_app(config_class=Config):
         
     # Force database name before loading config
     app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{db_path}'
+    
+    # Set secret key with priority:
+    # 1. GitHub Actions secret (FLASK_SECRET_KEY)
+    # 2. Environment variable (SECRET_KEY)
+    # 3. Value from .env file
+    # 4. Development fallback (never use in production)
+    app.config['SECRET_KEY'] = (
+        os.environ.get('FLASK_SECRET_KEY') or  # GitHub Actions secret
+        os.environ.get('SECRET_KEY') or        # Regular environment variable
+        'dev-temporary-key-replace-in-production'  # Fallback for development only
+    )
     print(f"Setting database path to: {app.config['SQLALCHEMY_DATABASE_URI']}")
     
-    # Load rest of config but preserve database URI
+    # Load rest of config but preserve database URI and secret key
     db_uri = app.config['SQLALCHEMY_DATABASE_URI']
+    secret_key = app.config['SECRET_KEY']
     app.config.from_object(config_class)
     app.config['SQLALCHEMY_DATABASE_URI'] = db_uri
+    app.config['SECRET_KEY'] = secret_key
 
     # Initialize extensions with app
     db.init_app(app)

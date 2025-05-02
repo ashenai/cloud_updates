@@ -94,6 +94,9 @@ jobs:
       name: production
       url: ${{ env.APP_URL }}
     
+    env:
+      FLASK_SECRET_KEY: ${{ secrets.FLASK_SECRET_KEY }}
+    
     steps:
       - uses: actions/checkout@v3
         with:
