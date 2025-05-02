@@ -19,12 +19,12 @@ echo "Setting up uWSGI..."
 sudo mkdir -p /etc/uwsgi/apps-available /etc/uwsgi/apps-enabled
 
 echo "Setting up required permissions..."
-sudo chown -R psaserv:psacln /var/www/vhosts/shen-ai.cloud
+sudo chown -R ashenai:psacln /var/www/vhosts/shen-ai.cloud
 sudo chmod -R 750 /var/www/vhosts/shen-ai.cloud
 
 echo "Creating temporary socket directory..."
 sudo mkdir -p /tmp/cloud_updates
-sudo chown psaserv:psacln /tmp/cloud_updates
+sudo chown ashenai:psacln /tmp/cloud_updates
 sudo chmod 750 /tmp/cloud_updates
 
 # Set up temporary Nginx configuration for SSL certificate generation

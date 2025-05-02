@@ -8,7 +8,7 @@ Group=psacln
 RuntimeDirectory=cloud_updates
 WorkingDirectory=/var/www/vhosts/shen-ai.cloud/cloud_updates
 Environment=PATH=/var/www/vhosts/shen-ai.cloud/venv/bin
-ExecStart=/var/www/vhosts/shen-ai.cloud/venv/bin/uwsgi --ini /etc/uwsgi/apps-enabled/cloud_updates.ini
+ExecStart=/var/www/vhosts/shen-ai.cloud/venv/bin/uwsgi --ini /var/www/vhosts/shen-ai.cloud/cloud_updates/uwsgi.ini --socket /tmp/cloud_updates.sock --wsgi-file /var/www/vhosts/shen-ai.cloud/cloud_updates/wsgi.py --callable app --single-interpreter --chmod-socket=666
 ExecReload=/bin/kill -HUP $MAINPID
 KillSignal=SIGQUIT
 TimeoutStopSec=5
