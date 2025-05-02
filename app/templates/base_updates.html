@@ -1,5 +1,7 @@
 {% extends "base.html" %}
 
+{% block title %}{% if provider == 'aws' %}AWS Updates{% else %}Azure Updates{% endif %}{% endblock %}
+
 {% block styles %}
 {{ super() }}
 <style>

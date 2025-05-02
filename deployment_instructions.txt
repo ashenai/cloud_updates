@@ -103,3 +103,58 @@ nohup  /var/www/vhosts/$DOMAIN/venv/bin/uwsgi --ini uwsgi.ini --socket /tmp/clou
  --wsgi-file wsgi.py --callable app --single-interpreter --chmod-socket=666 &
 end contents-----
 
+Deployment Instructions
+=======================
+
+Environment Setup
+----------------
+1. Navigate to the deploy directory
+2. Copy .env.example to .env:
+   cp .env.example .env
+3. Edit .env with your specific configuration:
+   - Set ADMIN_EMAIL to your admin email address
+   - Set REPO_FULL_NAME to your GitHub repository (e.g. username/cloud_updates)
+   - Verify SSL certificate paths
+   - Adjust other variables as needed for your environment
+
+Running Deployment Scripts
+-------------------------
+Use the run.sh wrapper script to execute any deployment script. This ensures all environment variables are properly loaded:
+
+1. Make the wrapper script executable:
+   chmod +x run.sh
+
+2. Run scripts using the wrapper:
+   - For initial setup:
+     ./run.sh setup.sh
+   
+   - For deployment:
+     ./run.sh deploy.sh
+   
+   - For monitoring:
+     ./run.sh monitor.sh
+
+The wrapper script will:
+- Load environment variables from .env file if present
+- Verify required secrets are set
+- Execute the requested script with proper permissions
+
+Manual GitHub Actions Variables
+-----------------------------
+When running these scripts in a GitHub Actions workflow, set the following:
+
+Environment Variables:
+- APP_BASE_DIR
+- DOMAIN_NAME
+- APP_USER
+- APP_GROUP
+
+Secrets:
+- ADMIN_EMAIL
+- REPO_FULL_NAME
+- SSL_CERT_PATH
+- SSL_KEY_PATH
+
+Note: Never commit the .env file to version control as it contains sensitive information.
+Use GitHub repository secrets for CI/CD workflows instead.
+
