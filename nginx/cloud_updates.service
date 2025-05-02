@@ -1,0 +1,21 @@
+[Unit]
+Description=uWSGI Cloud Updates Application
+After=network.target
+
+[Service]
+Environment=APP_BASE_DIR=/var/www/vhosts/shen-ai.cloud
+Environment=APP_USER=ashenai
+Environment=APP_GROUP=psacln
+User=%E{APP_USER}
+Group=%E{APP_GROUP}
+RuntimeDirectory=cloud_updates
+WorkingDirectory=%E{APP_BASE_DIR}/cloud_updates
+Environment=PATH=%E{APP_BASE_DIR}/venv/bin
+ExecStart=%E{APP_BASE_DIR}/venv/bin/uwsgi --ini %E{APP_BASE_DIR}/cloud_updates/uwsgi.ini --socket /tmp/cloud_updates.sock --wsgi-file %E{APP_BASE_DIR}/cloud_updates/wsgi.py --callable app --single-interpreter --chmod-socket=666
+ExecReload=/bin/kill -HUP $MAINPID
+KillSignal=SIGQUIT
+TimeoutStopSec=5
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

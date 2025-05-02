@@ -1,11 +1,13 @@
 #!/bin/bash
 set -e
 
-# Configuration
-APP_DIR="/var/www/vhosts/shen-ai.cloud/cloud_updates"
-VENV_DIR="/var/www/vhosts/shen-ai.cloud/venv"
-BACKUP_DIR="/var/www/vhosts/shen-ai.cloud/backups"
-LOG_DIR="/var/www/vhosts/shen-ai.cloud/logs"
+# Configuration from GitHub environment variables
+APP_DIR="${APP_BASE_DIR:-/var/www/vhosts/shen-ai.cloud}/cloud_updates"
+VENV_DIR="${APP_BASE_DIR:-/var/www/vhosts/shen-ai.cloud}/venv"
+BACKUP_DIR="${APP_BASE_DIR:-/var/www/vhosts/shen-ai.cloud}/backups"
+LOG_DIR="${APP_BASE_DIR:-/var/www/vhosts/shen-ai.cloud}/logs"
+APP_USER="${APP_USER:-ashenai}"
+APP_GROUP="${APP_GROUP:-psacln}"
 
 # Create necessary directories
 mkdir -p "$BACKUP_DIR" "$LOG_DIR"
@@ -23,7 +25,7 @@ if [ -d "$APP_DIR" ]; then
     git reset --hard origin/main
 else
     cd "$(dirname $APP_DIR)"
-    git clone https://github.com/$GITHUB_REPOSITORY cloud_updates
+    git clone https://github.com/$REPO_FULL_NAME cloud_updates
 fi
 
 # Set up virtual environment
@@ -50,13 +52,13 @@ cp "$APP_DIR/uwsgi.ini" /etc/uwsgi/apps-available/cloud_updates.ini
 ln -sf /etc/uwsgi/apps-available/cloud_updates.ini /etc/uwsgi/apps-enabled/
 
 # Set permissions
-chown -R ashenai:psacln "$APP_DIR" "$VENV_DIR" "$LOG_DIR"
+chown -R $APP_USER:$APP_GROUP "$APP_DIR" "$VENV_DIR" "$LOG_DIR"
 chmod -R 750 "$APP_DIR" "$VENV_DIR"
 chmod -R 770 "$LOG_DIR"
 
 # Create and set permissions for uwsgi socket directory
 mkdir -p /tmp/cloud_updates
-chown ashenai:psacln /tmp/cloud_updates
+chown $APP_USER:$APP_GROUP /tmp/cloud_updates
 chmod 750 /tmp/cloud_updates
 
 # Restart services
