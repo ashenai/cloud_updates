@@ -35,8 +35,8 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt pytest pytest-cov
       
-          - name: Install Playwright Browsers
-          run: 
+      - name: Install Playwright Browsers
+        run: |
             npx playwright install --with-deps
                   
       - name: Run tests with coverage
