@@ -49,3 +49,5 @@ instance/
 # OS
 .DS_Store
 Thumbs.db
+tests/coverage.xml
+tests/.coverage

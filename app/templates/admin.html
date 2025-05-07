@@ -14,7 +14,7 @@
             </h2>
         </div>
         <div class="card-body">
-            <form action="{{ url_for('admin_generate_themes') }}" method="post">
+            <form id="themeForm" action="{{ url_for('admin_generate_themes') }}" method="post">
                 <div class="mb-3">
                     <label for="week" class="form-label">Select Week</label>
                     <select name="week" id="week" class="form-select" required>
@@ -24,6 +24,14 @@
                         </option>
                         {% endfor %}
                     </select>
+                </div>
+                <div class="mb-3">
+                    <div class="form-check">
+                        <input type="checkbox" class="form-check-input" id="force_regenerate" name="force_regenerate" value="1">
+                        <label class="form-check-label" for="force_regenerate">
+                            Force regenerate (overwrites existing themes)
+                        </label>
+                    </div>
                 </div>
                 <button type="submit" class="btn btn-primary">
                     <i class="fas fa-sync-alt me-2"></i>Generate Themes
@@ -126,6 +134,23 @@
         {% endif %}
     {% endwith %}
 </div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const themeForm = document.getElementById('themeForm');
+    const forceRegenerateCheckbox = document.getElementById('force_regenerate');
+    
+    themeForm.addEventListener('submit', function(e) {
+        // Log form data for debugging
+        console.log('Form submitted');
+        console.log('Force regenerate checked:', forceRegenerateCheckbox.checked);
+        console.log('Force regenerate value:', forceRegenerateCheckbox.value);
+    });
+});
+</script>
 {% endblock %}
 
 <style>

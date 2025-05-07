@@ -32,6 +32,9 @@ from app.utils.theme_analyzer import get_week_start
 from app.utils.scraper import scrape_aws_updates, scrape_azure_updates
 from app.utils.cleaner import clean_all_updates, clean_aws_duplicates, clean_azure_duplicates
 from app.utils.theme_analyzer_llm import LLMThemeAnalyzer
+from app.scraper.aws_scraper import AWSScraper
+from app.scraper.azure_scraper import AzureScraper
+from app.scraper.aws_services import AWSServicesFetcher
 
 # Initialize search system
 update_search = UpdateSearch()
@@ -138,8 +141,9 @@ def init_routes(app):
             print(f"Selected week: {selected_week}")  # Debug print
             
             # Get themes for the selected week
+            # Use func.date() to compare only the date part
             themes = WeeklyTheme.query.filter(
-                WeeklyTheme.week_start == selected_week
+                func.date(WeeklyTheme.week_start) == func.date(selected_week)
             ).order_by(
                 WeeklyTheme.provider,
                 WeeklyTheme.relevance_score.desc()
@@ -153,15 +157,15 @@ def init_routes(app):
             if not themes and week_param:
                 print(f"No themes found for {selected_week}, trying alternative date formats")
                 
-                # Try to find the week by searching for a close match
+                # Try to find the week by searching for a close match using only date part
                 for week in weeks:
-                    if abs((week - selected_week).days) < 7:
+                    if abs((week.date() - selected_week.date()).days) < 7:
                         print(f"Found close match: {week} for {selected_week}")
                         selected_week = week
                         
-                        # Get themes for the matched week
+                        # Get themes for the matched week using date comparison
                         themes = WeeklyTheme.query.filter(
-                            WeeklyTheme.week_start == selected_week
+                            func.date(WeeklyTheme.week_start) == func.date(selected_week)
                         ).order_by(
                             WeeklyTheme.provider,
                             WeeklyTheme.relevance_score.desc()
@@ -185,8 +189,8 @@ def init_routes(app):
             flash('Error loading themes. Please try again.', 'error')
             return redirect(url_for('index'))
 
-    @app.route('/aws-updates')
-    @app.route('/aws-updates/page/<int:page>')
+    @app.route('/aws_updates')
+    @app.route('/aws_updates/page/<int:page>')
     def aws_updates(page=1):
         """Show AWS updates."""
         # Get filter parameters
@@ -232,8 +236,8 @@ def init_routes(app):
             selected_categories=selected_categories
         )
 
-    @app.route('/azure-updates')
-    @app.route('/azure-updates/page/<int:page>')
+    @app.route('/azure_updates')
+    @app.route('/azure_updates/page/<int:page>')
     def azure_updates(page=1):
         """Show Azure updates."""
         # Get filter parameters
@@ -420,146 +424,22 @@ def init_routes(app):
         
         return redirect(url_for('admin'))
 
-    @app.route('/insights')
-    def insights():
-        """Show insights page."""
-        # Get weekly insights
-        insights = WeeklyInsight.query.order_by(WeeklyInsight.week_start.desc()).all()
-        
-        # Prepare data for charts
-        weeks = []
-        aws_counts = []
-        azure_counts = []
-        
-        for insight in insights:  
-            weeks.append(insight.week_start.strftime('%b %d'))
-            aws_counts.append(insight.aws_updates)
-            azure_counts.append(insight.azure_updates)
-        
-        # Reverse lists to show chronological order
-        weeks.reverse()
-        aws_counts.reverse()
-        azure_counts.reverse()
-        
-        # Get latest insight for product/category charts
-        latest_insight = WeeklyInsight.query.order_by(WeeklyInsight.week_start.desc()).first()
-        
-        return render_template(
-            'insights.html',
-            weeks=weeks,
-            aws_counts=aws_counts,
-            azure_counts=azure_counts,
-            latest_insight=latest_insight
-        )
-
-    @app.route('/admin')
-    def admin():
-        """Admin dashboard."""
-        # Get available weeks for theme generation
-        available_weeks = get_available_weeks()
-        
-        # Get current week as default selection
-        selected_week = get_week_start(datetime.utcnow())
-        
-        # Get stats for both providers
-        total_aws = Update.query.filter_by(provider='aws').count()
-        total_azure = Update.query.filter_by(provider='azure').count()
-        
-        # Get latest updates
-        latest_aws = Update.query.filter_by(provider='aws').order_by(Update.published_date.desc()).first()
-        latest_azure = Update.query.filter_by(provider='azure').order_by(Update.published_date.desc()).first()
-        
-        return render_template(
-            'admin.html',
-            total_aws=total_aws,
-            total_azure=total_azure,
-            latest_aws=latest_aws,
-            latest_azure=latest_azure,
-            available_weeks=available_weeks,
-            selected_week=selected_week
-        )
-
-    @app.route('/admin/scrape/aws', methods=['POST'])
-    def admin_scrape_aws_updates():
-        """Scrape AWS updates."""
-        try:
-            count = scrape_aws_updates()
-            flash(f'Successfully fetched {count} AWS updates.', 'success')
-        except Exception as e:
-            flash(f'Error fetching AWS updates: {str(e)}', 'error')
-        
-        return redirect(url_for('admin'))
-
-    @app.route('/admin/scrape/azure', methods=['POST'])
-    def admin_scrape_azure_updates():
-        """Scrape Azure updates."""
-        try:
-            count = scrape_azure_updates()
-            flash(f'Successfully fetched {count} Azure updates.', 'success')
-        except Exception as e:
-            flash(f'Error fetching Azure updates: {str(e)}', 'error')
-        
-        return redirect(url_for('admin'))
-
-    @app.route('/admin/refresh', methods=['POST'])
-    def admin_refresh():
-        try:
-            # AWS Updates
-            aws_scraper = AWSScraper()
-            aws_updates = aws_scraper.scrape()
-            aws_count = 0
-            for update in aws_updates:
-                # Check if update already exists
-                existing_update = Update.query.filter_by(
-                    provider='aws',
-                    title=update['title'],
-                    published_date=update['published_date']
-                ).first()
-                
-                if not existing_update:
-                    new_update = Update(
-                        provider=update['provider'],
-                        title=update['title'],
-                        description=update['description'],
-                        url=update['url'],
-                        published_date=update['published_date'],
-                        categories=update['categories'],
-                        product_name=update['product_name'],
-                        update_types=update['update_types']
-                    )
-                    db.session.add(new_update)
-                    aws_count += 1
-
-            # Azure Updates
-            azure_scraper = AzureScraper()
-            azure_updates = azure_scraper.scrape()
-            azure_count = 0
-            for update in azure_updates:
-                # Check if update already exists
-                existing_update = Update.query.filter_by(
-                    provider='azure',
-                    title=update.title,
-                    published_date=update.published_date
-                ).first()
-                
-                if not existing_update:
-                    db.session.add(update)
-                    azure_count += 1
-
-            db.session.commit()
-            flash(f'Successfully fetched {aws_count} new AWS updates and {azure_count} new Azure updates!', 'success')
-        except Exception as e:
-            db.session.rollback()
-            flash(f'Error fetching updates: {str(e)}', 'error')
-        
-        return redirect(url_for('admin'))
-
     @app.route('/admin/generate_themes', methods=['POST'])
     def admin_generate_themes():
         """Generate themes from updates."""
         try:
             # Get the selected week from the form
             selected_week_str = request.form.get('week')
+            
+            # Debug print form data
+            print("\nForm data received:")
+            for key, value in request.form.items():
+                print(f"{key}: {value}")
+            
+            # force_regenerate will only be present in form data if checkbox is checked
+            force_regenerate = request.form.get('force_regenerate') is not None
+            print(f"Force regenerate value: {force_regenerate}")
+            
             if not selected_week_str:
                 flash('No week selected. Please select a week.', 'error')
                 return redirect(url_for('admin'))
@@ -567,7 +447,7 @@ def init_routes(app):
             # Parse the selected week
             try:
                 selected_week = datetime.fromisoformat(selected_week_str)
-                print(f"Selected week: {selected_week}")
+                print(f"Selected week: {selected_week}")  # Debug print
             except ValueError:
                 flash('Invalid week format. Please try again.', 'error')
                 return redirect(url_for('admin'))
@@ -575,13 +455,20 @@ def init_routes(app):
             # Calculate the end of the selected week
             week_end = selected_week + timedelta(days=7)
             
-            # Clear existing themes for the selected week
-            WeeklyTheme.query.filter_by(week_start=selected_week).delete()
+            # Check if themes already exist for this week using date comparison
+            existing_themes = WeeklyTheme.query.filter(
+                func.date(WeeklyTheme.week_start) == func.date(selected_week)
+            ).all()
             
-            # Get updates for the selected week only
+            if existing_themes and not force_regenerate:
+                print(f"Themes exist and force_regenerate is {force_regenerate}")  # Debug print
+                flash(f'Themes already exist for week of {selected_week.strftime("%b %d, %Y")}. Use force regenerate if you want to recreate them.', 'info')
+                return redirect(url_for('admin'))
+            
+            # Get updates for the selected week using date comparison
             updates = Update.query.filter(
-                Update.published_date >= selected_week,
-                Update.published_date < week_end
+                Update.published_date >= func.date(selected_week),
+                Update.published_date < func.date(week_end)
             ).all()
             
             if not updates:
@@ -594,13 +481,19 @@ def init_routes(app):
             aws_updates = [u for u in updates if u.provider.lower() == 'aws']
             azure_updates = [u for u in updates if u.provider.lower() == 'azure']
             
+            # Only delete existing themes if we're actually going to generate new ones
+            # This happens either when force_regenerate is true or when no themes existed
+            if force_regenerate or not existing_themes:
+                print(f"Deleting existing themes (force_regenerate: {force_regenerate}, existing_themes: {bool(existing_themes)})")  # Debug print
+                WeeklyTheme.query.filter(
+                    func.date(WeeklyTheme.week_start) == func.date(selected_week)
+                ).delete(synchronize_session='fetch')
+            
             # Generate themes for each provider if they have updates
             analyzer = LLMThemeAnalyzer()
             for provider, provider_updates in [('aws', aws_updates), ('azure', azure_updates)]:
                 if provider_updates:
                     print(f"\nProcessing {provider} updates for week {selected_week}")  # Debug print
-                    print(f"Number of {provider} updates: {len(provider_updates)}")  # Debug print
-                    
                     try:
                         themes = analyzer.generate_themes(provider_updates)
                         
@@ -608,7 +501,7 @@ def init_routes(app):
                         for theme_data in themes:
                             # Create WeeklyTheme
                             weekly_theme = WeeklyTheme(
-                                week_start=selected_week,  # Use the selected week
+                                week_start=selected_week,
                                 provider=theme_data['provider'],
                                 theme_name=theme_data['name'],
                                 description=theme_data['description'],
@@ -626,7 +519,9 @@ def init_routes(app):
                 db.session.commit()
                 print("\nSuccessfully committed themes to database")  # Debug print
                 # Query and print all weekly themes after commit
-                all_themes = WeeklyTheme.query.filter_by(week_start=selected_week).all()
+                all_themes = WeeklyTheme.query.filter(
+                    func.date(WeeklyTheme.week_start) == func.date(selected_week)
+                ).all()
                 print(f"\nWeekly themes for {selected_week.strftime('%b %d, %Y')}:")
                 for t in all_themes:
                     print(f"- {t.theme_name} (Provider: {t.provider})")
@@ -762,6 +657,34 @@ def init_routes(app):
         }
         return jsonify(debug_info)
 
+    @app.route('/debug/themes')
+    def debug_themes():
+        """Debug endpoint to check theme status."""
+        try:
+            current_week = get_week_start(datetime.utcnow())
+            themes = WeeklyTheme.query.all()
+            
+            debug_info = {
+                'current_week': current_week.isoformat(),
+                'total_themes': len(themes),
+                'themes_by_week': {}
+            }
+            
+            for theme in themes:
+                week = theme.week_start.isoformat()
+                if week not in debug_info['themes_by_week']:
+                    debug_info['themes_by_week'][week] = []
+                debug_info['themes_by_week'][week].append({
+                    'name': theme.theme_name,
+                    'provider': theme.provider,
+                    'score': theme.relevance_score,
+                    'update_count': theme.update_count
+                })
+            
+            return jsonify(debug_info)
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+
     @app.route('/reprocess-aws')
     def reprocess_aws():
         """Reprocess existing AWS updates with the improved extraction logic."""
@@ -859,6 +782,140 @@ def init_routes(app):
     def health_check():
         return jsonify({"status": "healthy", "timestamp": datetime.utcnow().isoformat()}), 200
 
+    @app.route('/insights')
+    def insights():
+        """Show insights page."""
+        # Get weekly insights
+        insights = WeeklyInsight.query.order_by(WeeklyInsight.week_start.desc()).all()
+        
+        # Prepare data for charts
+        weeks = []
+        aws_counts = []
+        azure_counts = []
+        
+        for insight in insights:  
+            weeks.append(insight.week_start.strftime('%b %d'))
+            aws_counts.append(insight.aws_updates)
+            azure_counts.append(insight.azure_updates)
+        
+        # Reverse lists to show chronological order
+        weeks.reverse()
+        aws_counts.reverse()
+        azure_counts.reverse()
+        
+        # Get latest insight for product/category charts
+        latest_insight = WeeklyInsight.query.order_by(WeeklyInsight.week_start.desc()).first()
+        
+        return render_template(
+            'insights.html',
+            weeks=weeks,
+            aws_counts=aws_counts,
+            azure_counts=azure_counts,
+            latest_insight=latest_insight
+        )
+
+    @app.route('/admin')
+    def admin():
+        """Admin dashboard."""
+        # Get available weeks for theme generation
+        available_weeks = get_available_weeks()
+        
+        # Get current week as default selection
+        selected_week = get_week_start(datetime.utcnow())
+        
+        # Get stats for both providers
+        total_aws = Update.query.filter_by(provider='aws').count()
+        total_azure = Update.query.filter_by(provider='azure').count()
+        
+        # Get latest updates
+        latest_aws = Update.query.filter_by(provider='aws').order_by(Update.published_date.desc()).first()
+        latest_azure = Update.query.filter_by(provider='azure').order_by(Update.published_date.desc()).first()
+        
+        return render_template(
+            'admin.html',
+            total_aws=total_aws,
+            total_azure=total_azure,
+            latest_aws=latest_aws,
+            latest_azure=latest_azure,
+            available_weeks=available_weeks,
+            selected_week=selected_week
+        )
+
+    @app.route('/admin/scrape/aws', methods=['POST'])
+    def admin_scrape_aws_updates():
+        """Scrape AWS updates."""
+        try:
+            count = scrape_aws_updates()
+            flash(f'Successfully fetched {count} AWS updates.', 'success')
+        except Exception as e:
+            flash(f'Error fetching AWS updates: {str(e)}', 'error')
+        
+        return redirect(url_for('admin'))
+
+    @app.route('/admin/scrape/azure', methods=['POST'])
+    def admin_scrape_azure_updates():
+        """Scrape Azure updates."""
+        try:
+            count = scrape_azure_updates()
+            flash(f'Successfully fetched {count} Azure updates.', 'success')
+        except Exception as e:
+            flash(f'Error fetching Azure updates: {str(e)}', 'error')
+        
+        return redirect(url_for('admin'))
+
+    @app.route('/admin/refresh', methods=['POST'])
+    def admin_refresh():
+        try:
+            # AWS Updates
+            aws_scraper = AWSScraper()
+            aws_updates = aws_scraper.scrape()
+            aws_count = 0
+            for update in aws_updates:
+                # Check if update already exists
+                existing_update = Update.query.filter_by(
+                    provider='aws',
+                    title=update['title'],
+                    published_date=update['published_date']
+                ).first()
+                
+                if not existing_update:
+                    new_update = Update(
+                        provider=update['provider'],
+                        title=update['title'],
+                        description=update['description'],
+                        url=update['url'],
+                        published_date=update['published_date'],
+                        categories=update['categories'],
+                        product_name=update['product_name'],
+                        update_types=update['update_types']
+                    )
+                    db.session.add(new_update)
+                    aws_count += 1
+
+            # Azure Updates
+            azure_scraper = AzureScraper()
+            azure_updates = azure_scraper.scrape()
+            azure_count = 0
+            for update in azure_updates:
+                # Check if update already exists
+                existing_update = Update.query.filter_by(
+                    provider='azure',
+                    title=update.title,
+                    published_date=update.published_date
+                ).first()
+                
+                if not existing_update:
+                    db.session.add(update)
+                    azure_count += 1
+
+            db.session.commit()
+            flash(f'Successfully fetched {aws_count} new AWS updates and {azure_count} new Azure updates!', 'success')
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error fetching updates: {str(e)}', 'error')
+        
+        return redirect(url_for('admin'))
+    
     def get_week_start(dt):
         """Get the start of the week (Monday) for a given date/datetime."""
         # Convert to datetime if date
