@@ -77,24 +77,34 @@ def init_routes(app):
         return {
             'min': min,
             'max': max
-        }
-
+        }    
+    
     @app.route('/')
     def index():
         """Home page."""
-        # Get current week's themes
-        current_week = get_week_start(datetime.utcnow())
-        themes = WeeklyTheme.query.filter_by(week_start=current_week).all()
+        # Get the latest week that has themes
+        latest_theme = WeeklyTheme.query.order_by(WeeklyTheme.week_start.desc()).first()
+        if latest_theme:
+            latest_week = latest_theme.week_start
+            themes = WeeklyTheme.query.filter_by(week_start=latest_week).all()
+        else:
+            themes = []
         
         # Split themes by provider
         aws_themes = [t for t in themes if t.provider == 'aws']
         azure_themes = [t for t in themes if t.provider == 'azure']
         
+        # Get latest 3 updates for each provider
+        latest_aws_updates = Update.query.filter_by(provider='aws').order_by(Update.published_date.desc()).limit(3).all()
+        latest_azure_updates = Update.query.filter_by(provider='azure').order_by(Update.published_date.desc()).limit(3).all()
+        
         return render_template(
             'index.html',
             aws_themes=aws_themes,
             azure_themes=azure_themes,
-            themes=themes  # Used to check if any themes exist
+            themes=themes,  # Used to check if any themes exist
+            latest_aws_updates=latest_aws_updates,
+            latest_azure_updates=latest_azure_updates
         )
 
     @app.route('/themes')

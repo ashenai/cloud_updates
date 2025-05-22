@@ -3,31 +3,66 @@
 {% block title %}Cloud Updates{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
-    <!-- Provider Cards -->
+<div class="container mt-4">    <!-- Latest Updates Section -->
     <div class="row mb-5">
-        <!-- AWS Card -->
+        <!-- AWS Latest Updates -->
         <div class="col-md-6">
             <div class="card h-100">
+                <div class="card-header bg-dark text-white">
+                    <h2 class="h5 mb-0"><i class="fab fa-aws me-2"></i>AWS Updates</h2>
+                </div>
                 <div class="card-body">
-                    <h2 class="card-title">
-                        <i class="fab fa-aws me-2"></i>AWS Updates
-                    </h2>
-                    <p class="card-text">View the latest updates and announcements from Amazon Web Services.</p>
-                    <a href="{{ url_for('aws_updates') }}" class="btn btn-warning">View AWS Updates</a>
+                    {% if latest_aws_updates %}
+                        <div class="list-group list-group-flush">
+                            {% for update in latest_aws_updates %}
+                                <div class="list-group-item">
+                                    <div class="d-flex w-100 justify-content-between">
+                                        <h5 class="mb-1 h6">
+                                            <a href="{{ update.url }}" class="text-decoration-none" target="_blank">{{ update.title }}</a>
+                                        </h5>
+                                        <small class="text-muted">{{ update.published_date.strftime('%b %d') }}</small>
+                                    </div>
+                                    <p class="mb-1 small">{{ update.description[:150] }}...</p>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="text-muted mb-0">No recent AWS updates available.</p>
+                    {% endif %}
+                    <div class="text-center mt-3">
+                        <a href="{{ url_for('aws_updates') }}" class="btn btn-warning">View All AWS Updates</a>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <!-- Azure Card -->
+        <!-- Azure Latest Updates -->
         <div class="col-md-6">
             <div class="card h-100">
+                <div class="card-header bg-primary text-white">
+                    <h2 class="h5 mb-0"><i class="fab fa-microsoft me-2"></i>Azure Updates</h2>
+                </div>
                 <div class="card-body">
-                    <h2 class="card-title">
-                        <i class="fab fa-microsoft me-2"></i>Azure Updates
-                    </h2>
-                    <p class="card-text">View the latest updates and announcements from Microsoft Azure.</p>
-                    <a href="{{ url_for('azure_updates') }}" class="btn btn-primary">View Azure Updates</a>
+                    {% if latest_azure_updates %}
+                        <div class="list-group list-group-flush">
+                            {% for update in latest_azure_updates %}
+                                <div class="list-group-item">
+                                    <div class="d-flex w-100 justify-content-between">
+                                        <h5 class="mb-1 h6">
+                                            <a href="{{ update.url }}" class="text-decoration-none" target="_blank">{{ update.title }}</a>
+                                        </h5>
+                                        <small class="text-muted">{{ update.published_date.strftime('%b %d') }}</small>
+                                    </div>
+                                    <p class="mb-1 small">{{ update.description[:150] }}...</p>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="text-muted mb-0">No recent Azure updates available.</p>
+                    {% endif %}
+                    <div class="text-center mt-3">
+                        <a href="{{ url_for('azure_updates') }}" class="btn btn-primary">View All Azure Updates</a>
+                    </div>
                 </div>
             </div>
         </div>
