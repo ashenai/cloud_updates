@@ -7,17 +7,23 @@ from app import db
 from app.models import Update
 from anthropic import Anthropic
 import os
+import time
+from random import uniform
 
 @click.command('generate_explanations')
 @with_appcontext
 @click.option('--force-generation', is_flag=True, help='Force regeneration of explanations for all updates')
 def generate_explanations(force_generation):
     """Generate explanations for updates using Claude."""
-    try:
-        # Build query for updates without explanations or all updates if force_generation is true
+    try:        # Build query for updates without explanations or all updates if force_generation is true
         query = Update.query
         if not force_generation:
-            query = query.filter(Update.explanation.is_(None))
+            query = query.filter(
+                db.or_(
+                    Update.explanation.is_(None),
+                    Update.explanation == ''
+                )
+            )
         
         updates = query.order_by(Update.published_date.desc()).all()
         total_updates = len(updates)
@@ -36,29 +42,42 @@ def generate_explanations(force_generation):
 
         processed = 0
         with click.progressbar(updates, label='Generating explanations') as bar:
-            for update in bar:
+            for update in bar:                
                 prompt = f"provide brief explanation for: '{update.title}'."
                 
-                try:
-                    message = client.messages.create(
-                        model="claude-3-5-sonnet-20240620",
-                        max_tokens=1000,
-                        messages=[{"role": "user", "content": prompt}]
-                    )
-                    
-                    explanation = ""
-                    for content in message.content:
-                        if hasattr(content, 'text'):
-                            explanation += content.text
-                        elif isinstance(content, str):
-                            explanation += content
-                    
-                    update.explanation = explanation.strip()
-                    processed += 1
-                    
-                except Exception as e:
-                    click.echo(f'\nError generating explanation for update {update.id}: {str(e)}', err=True)
-                    continue
+                # Implement retry logic with exponential backoff
+                max_retries = 5
+                base_delay = 1  # Start with 1 second delay
+                
+                for attempt in range(max_retries):
+                    try:
+                        message = client.messages.create(
+                            model="claude-3-5-sonnet-20240620",
+                            max_tokens=1000,
+                            messages=[{"role": "user", "content": prompt}]
+                        )
+                        
+                        explanation = ""
+                        for content in message.content:
+                            if hasattr(content, 'text'):
+                                explanation += content.text
+                            elif isinstance(content, str):
+                                explanation += content
+                        
+                        update.explanation = explanation.strip()
+                        processed += 1
+                        break  # Success! Break the retry loop
+                        
+                    except Exception as e:
+                        if 'overloaded_error' in str(e):
+                            if attempt < max_retries - 1:  # Don't wait after the last attempt
+                                delay = base_delay * (2 ** attempt) + uniform(0, 0.1)  # Add small random jitter
+                                click.echo(f'\nAPI overloaded, retrying in {delay:.1f} seconds... (Attempt {attempt + 1}/{max_retries})', err=True)
+                                time.sleep(delay)
+                                continue
+                        
+                        click.echo(f'\nError generating explanation for update {update.id}: {str(e)}', err=True)
+                        break  # Break on non-overload errors or final attempt
                 
                 # Commit in batches of 10
                 if processed % 10 == 0:
