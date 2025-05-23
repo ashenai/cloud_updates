@@ -23,7 +23,7 @@ def generate_explanation(title: str) -> str:
         raise Exception('ANTHROPIC_API_KEY environment variable not set')
         
     client = Anthropic(api_key=api_key)
-    prompt = f"provide brief explanation for this title: '{title}'. Only explain what the update is about"
+    prompt = f"provide brief explanation for '{title}'"
     
     message = client.messages.create(
         model="claude-3-5-sonnet-20240620",

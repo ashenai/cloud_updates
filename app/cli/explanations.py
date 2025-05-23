@@ -37,7 +37,7 @@ def generate_explanations(force_generation):
         processed = 0
         with click.progressbar(updates, label='Generating explanations') as bar:
             for update in bar:
-                prompt = f"provide brief explanation for this title: '{update.title}'. Only explain what the update is about"
+                prompt = f"provide brief explanation for: '{update.title}'."
                 
                 try:
                     message = client.messages.create(
