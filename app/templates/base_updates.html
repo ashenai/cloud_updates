@@ -747,8 +747,7 @@ document.addEventListener('DOMContentLoaded', function() {
             spinner.classList.remove('d-none');
             explanationText.textContent = '';
             
-            try {
-                const response = await fetch(`/api/update/${updateId}/explain`);
+            try {                const response = await fetch(`{{ url_for('get_update_explanation', update_id=0) }}`.replace('0', updateId));
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
@@ -758,7 +757,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 } else {
                     explanationText.textContent = 'No explanation available. Generating one...';
                     // Trigger explanation generation
-                    const generateResponse = await fetch(`/api/update/${updateId}/generate_explanation`, {
+                    const generateResponse = await fetch(`{{ url_for('generate_update_explanation', update_id=0) }}`.replace('0', updateId), {
                         method: 'POST'
                     });
                     if (generateResponse.ok) {
