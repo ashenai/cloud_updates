@@ -78,18 +78,14 @@
     <!-- Updates List -->
     <div class="list-group">
         {% for update in pagination.items %}
-        <div class="list-group-item">
-            <div class="d-flex w-100 justify-content-between">
-                <h5 class="mb-1">{{ update.title }}</h5>
+        <div class="list-group-item">            <div class="d-flex w-100 justify-content-between">
+                <h5 class="mb-1"><a href="{{ update.url }}" target="_blank" class="text-decoration-none text-dark">{{ update.title }}</a></h5>
                 <small class="text-muted">{{ update.published_date.strftime('%b %d, %Y') }}</small>
             </div>
             <p class="mb-1">{{ update.description[:200] }}...</p>
             {% if update.product_name %}
             <small class="d-block mb-2">Product: {{ update.product_name }}</small>
             {% endif %}
-            <small>
-                <a href="{{ update.url }}" target="_blank" class="text-primary">Read more</a>
-            </small>
         </div>
         {% endfor %}
     </div>

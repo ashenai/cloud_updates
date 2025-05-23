@@ -350,9 +350,8 @@
              data-product="{{ update.product_name or '' }}" 
              data-category="{{ update.categories|tojson }}" 
              data-type="{{ update.update_types|tojson }}"
-             data-status="{{ update.status|tojson }}">
-            <div class="d-flex w-100 justify-content-between mb-2">
-                <h5 class="mb-0">{{ update.title }}</h5>
+             data-status="{{ update.status|tojson }}">            <div class="d-flex w-100 justify-content-between mb-2">
+                <h5 class="mb-0"><a href="{{ update.url }}" target="_blank" class="text-decoration-none text-primary">{{ update.title }}</a></h5>
                 <small class="text-muted">{{ update.published_date.strftime('%b %d, %Y') }}</small>
             </div>
             
@@ -430,10 +429,8 @@
                         data-product="{{ update.product_name or '' }}" 
                         data-categories="{{ update.categories|tojson if provider == 'aws' else update.product_names|tojson }}" 
                         data-types="{{ update.update_types|tojson if provider == 'azure' else update.update_types|tojson }}"
-                        data-status="{{ update.status|tojson }}">
-                    Preview
+                        data-status="{{ update.status|tojson }}">                    Preview
                 </button>
-                <a href="{{ update.url }}" target="_blank" class="btn btn-sm btn-link">Read more</a>
             </div>
         </div>
         {% endfor %}
