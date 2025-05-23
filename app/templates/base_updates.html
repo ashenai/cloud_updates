@@ -772,7 +772,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             } catch (error) {
                 console.error('Error:', error);
-                explanationText.textContent = 'Error: Failed to fetch explanation';
+                explanationText.textContent = 'Error: Failed to fetch explanation: ' + error.message;
             } finally {
                 spinner.classList.add('d-none');
             }
