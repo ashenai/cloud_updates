@@ -77,6 +77,10 @@ def create_app(config_class=Config):
     from app.routes import init_routes
     init_routes(app)
 
+    # Initialize CLI commands
+    from app.cli import init_app as init_cli
+    init_cli(app)
+
     # Create tables if they don't exist
     with app.app_context():
         try:

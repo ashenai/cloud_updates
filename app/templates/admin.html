@@ -121,9 +121,7 @@
                 </form>
             </div>
         </div>
-    </div>
-
-    {% with messages = get_flashed_messages(with_categories=true) %}
+    </div>    {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
             {% for category, message in messages %}
                 <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
@@ -141,13 +139,12 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const themeForm = document.getElementById('themeForm');
-    const forceRegenerateCheckbox = document.getElementById('force_regenerate');
     
     themeForm.addEventListener('submit', function(e) {
         // Log form data for debugging
         console.log('Form submitted');
-        console.log('Force regenerate checked:', forceRegenerateCheckbox.checked);
-        console.log('Force regenerate value:', forceRegenerateCheckbox.value);
+        console.log('Force regenerate checked:', document.getElementById('force_regenerate').checked);
+        console.log('Force regenerate value:', document.getElementById('force_regenerate').value);
     });
 });
 </script>

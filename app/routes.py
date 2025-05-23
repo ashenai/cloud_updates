@@ -937,3 +937,108 @@ def init_routes(app):
         
         # Normalize to midnight UTC
         return monday.replace(hour=0, minute=0, second=0, microsecond=0)
+
+    @app.route('/api/update/<int:update_id>/explain')
+    def get_update_explanation(update_id):
+        update = Update.query.get_or_404(update_id)
+        
+        if not update.explanation:
+            # If no explanation exists, generate one using Claude
+            try:
+                from anthropic import Anthropic
+                import os
+                
+                client = Anthropic(api_key=os.getenv('ANTHROPIC_API_KEY'))
+                # prompt = f"provide brief explanation for this title: '{update.title}'. Use this URL for getting any information needed: {update.url}"
+                prompt = f"provide brief explanation for this title: '{update.title}'. Only explain what the update is about"
+                
+                message = client.messages.create(
+                    model="claude-3-5-sonnet-20240620",
+                    max_tokens=1000,
+                    messages=[{"role": "user", "content": prompt}]
+                )
+                
+                # Extract just the text content from Claude's response
+                explanation = ""
+                for content in message.content:
+                    if hasattr(content, 'text'):
+                        explanation += content.text
+                    elif isinstance(content, str):
+                        explanation += content
+            
+                # Update the database with the extracted text
+                update.explanation = explanation.strip()
+                db.session.commit()
+                
+            except Exception as e:
+                return jsonify({'error': str(e)}), 500
+    
+        return jsonify({'explanation': update.explanation})
+
+    @app.route('/admin/generate_explanations', methods=['POST'])
+    def admin_generate_explanations():
+        """Generate explanations for updates."""
+        try:
+            force_regenerate = bool(request.form.get('force_regenerate'))
+            
+            # Build query for updates without explanations or all updates if force_regenerate
+            query = Update.query
+            if not force_regenerate:
+                query = query.filter(Update.explanation.is_(None))
+            
+            updates = query.order_by(Update.published_date.desc()).all()
+            total_updates = len(updates)
+            
+            if not updates:
+                flash('No updates found that need explanations.', 'info')
+                return redirect(url_for('admin'))
+            
+            from anthropic import Anthropic
+            import os
+            client = Anthropic(api_key=os.getenv('ANTHROPIC_API_KEY'))
+            
+            processed = 0
+            for update in updates:
+                prompt = f"provide brief explanation for this title: '{update.title}'. Only explain what the update is about"
+                
+                try:
+                    message = client.messages.create(
+                        model="claude-3-5-sonnet-20240620",
+                        max_tokens=1000,
+                        messages=[{"role": "user", "content": prompt}]
+                    )
+                    
+                    explanation = ""
+                    for content in message.content:
+                        if hasattr(content, 'text'):
+                            explanation += content.text
+                        elif isinstance(content, str):
+                            explanation += content
+                    
+                    update.explanation = explanation.strip()
+                    processed += 1
+                    
+                except Exception as e:
+                    print(f"Error generating explanation for update {update.id}: {str(e)}")
+                    continue
+                
+                # Commit in batches of 10
+                if processed % 10 == 0:
+                    try:
+                        db.session.commit()
+                    except Exception as commit_error:
+                        print(f"Error committing batch: {str(commit_error)}")
+                        db.session.rollback()
+            
+            # Final commit for remaining changes
+            try:
+                db.session.commit()
+                flash(f'Successfully generated {processed} explanations out of {total_updates} updates.', 'success')
+            except Exception as commit_error:
+                db.session.rollback()
+                flash(f'Error saving explanations: {str(commit_error)}', 'error')
+                
+        except Exception as e:
+            flash(f'Error generating explanations: {str(e)}', 'error')
+        
+        return redirect(url_for('admin'))
