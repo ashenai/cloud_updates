@@ -25,16 +25,17 @@ to ensure its accuracy and functionality, users should:
 from datetime import datetime, timedelta, date
 from flask import render_template, flash, redirect, url_for, request, jsonify, current_app
 from sqlalchemy import func, extract
-from app.models import Update, WeeklyTheme, WeeklyInsight, Theme
-from app.rag.embeddings import UpdateSearch
 from app import db
-from app.utils.theme_analyzer import get_week_start
-from app.utils.scraper import scrape_aws_updates, scrape_azure_updates
-from app.utils.cleaner import clean_all_updates, clean_aws_duplicates, clean_azure_duplicates
-from app.utils.theme_analyzer_llm import LLMThemeAnalyzer
+from app.models import Update, WeeklyInsight, WeeklyTheme
+from app.utils.update_analyzer import generate_explanation
+from app.rag.embeddings import UpdateSearch
 from app.scraper.aws_scraper import AWSScraper
 from app.scraper.azure_scraper import AzureScraper
 from app.scraper.aws_services import AWSServicesFetcher
+from app.utils.theme_analyzer_llm import LLMThemeAnalyzer
+from app.utils.theme_analyzer import get_week_start
+from app.utils.cleaner import clean_all_updates
+from app.utils.scraper import scrape_aws_updates, scrape_azure_updates
 
 # Initialize search system
 update_search = UpdateSearch()
@@ -924,7 +925,7 @@ def init_routes(app):
             db.session.rollback()
             flash(f'Error fetching updates: {str(e)}', 'error')
         
-        return redirect(url_for('admin'))
+        return redirect(url_for('admin'))    
     
     def get_week_start(dt):
         """Get the start of the week (Monday) for a given date/datetime."""
@@ -938,44 +939,35 @@ def init_routes(app):
         # Normalize to midnight UTC
         return monday.replace(hour=0, minute=0, second=0, microsecond=0)
 
-    @app.route('/api/update/<int:update_id>/explain')
+    @app.route('/api/update/<int:update_id>/explain')    
     def get_update_explanation(update_id):
-        update = Update.query.get_or_404(update_id)
-        
-        if not update.explanation:
-            # If no explanation exists, generate one using Claude
-            try:
-                from anthropic import Anthropic
-                import os
-                
-                client = Anthropic(api_key=os.getenv('ANTHROPIC_API_KEY'))
-                # prompt = f"provide brief explanation for this title: '{update.title}'. Use this URL for getting any information needed: {update.url}"
-                prompt = f"provide brief explanation for this title: '{update.title}'. Only explain what the update is about"
-                
-                message = client.messages.create(
-                    model="claude-3-5-sonnet-20240620",
-                    max_tokens=1000,
-                    messages=[{"role": "user", "content": prompt}]
-                )
-                
-                # Extract just the text content from Claude's response
-                explanation = ""
-                for content in message.content:
-                    if hasattr(content, 'text'):
-                        explanation += content.text
-                    elif isinstance(content, str):
-                        explanation += content
+        try:
+            update = Update.query.get_or_404(update_id)
             
-                # Update the database with the extracted text
-                update.explanation = explanation.strip()
-                db.session.commit()
+            if not update.explanation:
+                # If no explanation exists, generate one using Claude
+                try:
+                    explanation = generate_explanation(update.title)
+                    update.explanation = explanation
+                    db.session.commit()
+                except Exception as e:
+                    current_app.logger.error(f"Error generating explanation: {str(e)}")
+                    return jsonify({
+                        'error': f"Failed to generate explanation: {str(e)}"
+                    }), 500
+            
+            if not update.explanation:
+                return jsonify({
+                    'error': 'Could not generate explanation for this update.'
+                }), 500
                 
-            except Exception as e:
-                return jsonify({'error': str(e)}), 500
-    
-        return jsonify({'explanation': update.explanation})
-
-    @app.route('/admin/generate_explanations', methods=['POST'])
+            return jsonify({'explanation': update.explanation})
+            
+        except Exception as e:
+            current_app.logger.error(f"Error in get_update_explanation: {str(e)}")
+            return jsonify({
+                'error': f"Failed to fetch explanation: {str(e)}"
+            }), 500@app.route('/admin/generate_explanations', methods=['POST'])
     def admin_generate_explanations():
         """Generate explanations for updates."""
         try:
@@ -993,33 +985,14 @@ def init_routes(app):
                 flash('No updates found that need explanations.', 'info')
                 return redirect(url_for('admin'))
             
-            from anthropic import Anthropic
-            import os
-            client = Anthropic(api_key=os.getenv('ANTHROPIC_API_KEY'))
-            
             processed = 0
             for update in updates:
-                prompt = f"provide brief explanation for this title: '{update.title}'. Only explain what the update is about"
-                
                 try:
-                    message = client.messages.create(
-                        model="claude-3-5-sonnet-20240620",
-                        max_tokens=1000,
-                        messages=[{"role": "user", "content": prompt}]
-                    )
-                    
-                    explanation = ""
-                    for content in message.content:
-                        if hasattr(content, 'text'):
-                            explanation += content.text
-                        elif isinstance(content, str):
-                            explanation += content
-                    
-                    update.explanation = explanation.strip()
+                    update.explanation = generate_explanation(update.title)
                     processed += 1
                     
                 except Exception as e:
-                    print(f"Error generating explanation for update {update.id}: {str(e)}")
+                    current_app.logger.error(f"Error generating explanation for update {update.id}: {str(e)}")
                     continue
                 
                 # Commit in batches of 10
@@ -1027,7 +1000,7 @@ def init_routes(app):
                     try:
                         db.session.commit()
                     except Exception as commit_error:
-                        print(f"Error committing batch: {str(commit_error)}")
+                        current_app.logger.error(f"Error committing batch: {str(commit_error)}")
                         db.session.rollback()
             
             # Final commit for remaining changes
