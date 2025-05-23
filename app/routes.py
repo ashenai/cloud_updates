@@ -967,7 +967,14 @@ def init_routes(app):
             current_app.logger.error(f"Error in get_update_explanation: {str(e)}")
             return jsonify({
                 'error': f"Failed to fetch explanation: {str(e)}"
-            }), 500@app.route('/admin/generate_explanations', methods=['POST'])
+            }), 500
+
+    @app.route('/api/update/<int:update_id>/generate_explanation', methods=['POST'])
+    def generate_update_explanation(update_id):
+        # Forward to the existing explain endpoint functionality
+        return get_update_explanation(update_id)
+
+    @app.route('/admin/generate_explanations', methods=['POST'])
     def admin_generate_explanations():
         """Generate explanations for updates."""
         try:
