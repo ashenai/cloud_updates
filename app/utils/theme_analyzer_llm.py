@@ -63,7 +63,7 @@ Updates to analyze:
 
 Format your response as a JSON array of themes, where each theme has these exact keys:
 - name: The theme name (string)
-- description: A 1-2 sentence description (string)
+- description: A 5-6 sentence description (string)
 - services: List of relevant services (array of strings)
 - update_count: Number of updates that fit this theme (integer)
 

@@ -1,32 +1,8 @@
 {% extends "base.html" %}
 
-{% block title %}{% if provider == 'aws' %}AWS Updates{% else %}Azure Updates{% endif %}{% endblock %}
-
 {% block styles %}
 {{ super() }}
 <style>
-    /* Force scrollbar to always show */
-    html {
-        overflow-y: scroll !important;
-    }
-
-    /* Prevent modal from shifting content */
-    body.modal-open {
-        overflow-y: scroll !important;
-        padding-right: 0 !important;
-    }
-
-    /* Fix modal backdrop */
-    .modal-backdrop {
-        width: 100% !important;
-        height: 100% !important;
-    }
-
-    /* Prevent content shift when modal opens */
-    .modal {
-        padding-right: 0 !important;
-    }
-
     /* Provider Badges */
     .provider-badge {
         font-size: 0.8em;
@@ -57,9 +33,15 @@
     }
     .list-group-item h5 {
         font-size: 1.1rem;
-        color: #323130;
         margin-bottom: 0.75rem;
         line-height: 1.4;
+    }
+    .list-group-item h5 a {
+        color: #0078D4 !important;
+    }
+    .list-group-item h5 a:hover {
+        color: #005a9e !important;
+        text-decoration: underline !important;
     }
     .list-group-item .text-muted {
         font-size: 0.875rem;
@@ -188,6 +170,21 @@
     
     .list-group-item:hover {
         background-color: rgba(0,0,0,0.02);
+    }
+    
+    /* Explanation Modal Styles */
+    #explanationModal .modal-body {
+        padding: 1.5rem;
+    }
+    
+    #explanationText {
+        line-height: 1.6;
+        font-size: 0.95rem;
+    }
+    
+    .explanation-content .spinner-border {
+        display: block;
+        margin: 1rem auto;
     }
 </style>
 {% endblock %}
@@ -372,8 +369,9 @@
              data-product="{{ update.product_name or '' }}" 
              data-category="{{ update.categories|tojson }}" 
              data-type="{{ update.update_types|tojson }}"
-             data-status="{{ update.status|tojson }}">            <div class="d-flex w-100 justify-content-between mb-2">
-                <h5 class="mb-0"><a href="{{ update.url }}" target="_blank" class="text-decoration-none text-primary">{{ update.title }}</a></h5>
+             data-status="{{ update.status|tojson }}">
+            <div class="d-flex w-100 justify-content-between mb-2">
+                <h5 class="mb-0"><a href="{{ update.url }}" target="_blank" class="text-decoration-none text-dark">{{ update.title }}</a></h5>
                 <small class="text-muted">{{ update.published_date.strftime('%b %d, %Y') }}</small>
             </div>
             
@@ -440,12 +438,13 @@
             </div>
             
             <div class="d-flex justify-content-end mt-2">
-                <button class="btn btn-sm btn-outline-info me-2 btn-explain" 
-                        data-update-id="{{ update.id }}"
-                        type="button">
+                <button class="btn btn-sm btn-outline-primary me-2 btn-explain" 
+                        data-bs-toggle="modal" 
+                        data-bs-target="#explanationModal" 
+                        data-update-id="{{ update.id }}">
                     Explain
                 </button>
-                <button class="btn btn-sm btn-outline-primary me-2 btn-preview" 
+                <button class="btn btn-sm btn-outline-primary btn-preview" 
                         data-bs-toggle="modal" 
                         data-bs-target="#previewModal" 
                         data-title="{{ update.title }}" 
@@ -515,21 +514,23 @@
 </div>
 
 <!-- Explanation Modal -->
-<div class="modal fade" id="explanationModal" tabindex="-1" aria-labelledby="explanationModalLabel" aria-hidden="true">
+<div class="modal fade" id="explanationModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
-            <div class="modal-header">                <h5 class="modal-title d-flex align-items-center">
-                    Explanation 
-                    <small class="text-muted ms-2" style="font-size: 0.75em;">AI generated</small>
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            <div class="modal-header">
+                <h5 class="modal-title">Explanation</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
+                <p class="text-muted small mb-3"><i class="fas fa-robot me-1"></i>AI Generated</p>
                 <div class="explanation-content">
-                    <div class="spinner-border text-primary d-none" role="status">
+                    <div class="spinner-border text-primary" role="status">
                         <span class="visually-hidden">Loading...</span>
                     </div>
-                    <div class="explanation-text"></div>
+                    <p id="explanationText" class="mt-3"></p>
+                </div>
+                <div class="explanation-error text-danger" style="display: none;">
+                    <p>Sorry, we couldn't generate an explanation for this update.</p>
                 </div>
             </div>
             <div class="modal-footer">
@@ -538,247 +539,193 @@
         </div>
     </div>
 </div>
+{% endblock %}
 
 {% block scripts %}
 {{ super() }}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Get modal elements
-    const previewModalEl = document.getElementById('previewModal');
-    const explanationModalEl = document.getElementById('explanationModal');
-    
-    // Initialize modals
-    const previewModal = previewModalEl ? new bootstrap.Modal(previewModalEl, {
-        backdrop: true,
-        keyboard: true,
-        focus: true
-    }) : null;
-    
-    const explanationModal = explanationModalEl ? new bootstrap.Modal(explanationModalEl, {
-        backdrop: true,
-        keyboard: true,
-        focus: true
-    }) : null;
-
-    // Handle modal cleanup on hide
-    [previewModalEl, explanationModalEl].forEach(modalEl => {
-        if (modalEl) {
-            modalEl.addEventListener('hidden.bs.modal', function () {
-                // Ensure bootstrap classes are removed
-                document.body.classList.remove('modal-open');
-                document.body.style.paddingRight = '';
-                document.body.style.overflow = '';
-                
-                // Remove backdrops
-                const backdrops = document.querySelectorAll('.modal-backdrop');
-                backdrops.forEach(backdrop => backdrop.remove());
-            });
-        }
-    });
-
-    // Reset body styles when all modals are hidden
-    const resetBodyStyles = () => {
-        if (!document.querySelector('.modal.show')) {
-            document.body.style.overflow = '';
-            document.body.style.paddingRight = '';
-        }
-    };
-
-    // Add event listeners for modal events
-    [previewModalEl, explanationModalEl].forEach(modalEl => {
-        if (modalEl) {
-            modalEl.addEventListener('show.bs.modal', function() {
-                // Ensure scrollbar width is consistent
-                const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
-                document.body.style.paddingRight = scrollbarWidth + 'px';
-            });
-            
-            modalEl.addEventListener('hidden.bs.modal', resetBodyStyles);
-        }
-    });
-    
     // Initialize Bootstrap tooltips
     var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
     var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
         return new bootstrap.Tooltip(tooltipTriggerEl)
     });
     
-    // Handle modal cleanup on hide
+    // Get the modal element
+    const previewModalEl = document.getElementById('previewModal');
+    
+    // Only initialize if the modal exists
     if (previewModalEl) {
-        previewModalEl.addEventListener('hidden.bs.modal', function () {
-            document.body.classList.remove('modal-open');
-            const backdrop = document.querySelector('.modal-backdrop');
-            if (backdrop) {
-                backdrop.remove();
-            }
-        });
-    }
-
-    if (explanationModalEl) {
-        explanationModalEl.addEventListener('hidden.bs.modal', function () {
-            document.body.classList.remove('modal-open');
-            const backdrop = document.querySelector('.modal-backdrop');
-            if (backdrop) {
-                backdrop.remove();
-            }
-        });
-    }
-    
-    // Handle preview button clicks
-    const previewButtons = document.querySelectorAll('.btn-preview');
-    previewButtons.forEach(button => {
-        button.addEventListener('click', function(e) {
-            e.preventDefault();
-            
-            // Get data from button attributes
-            const title = this.getAttribute('data-title');
-            const description = this.getAttribute('data-description');
-            const date = this.getAttribute('data-date');
-            const provider = this.getAttribute('data-provider');
-            const url = this.getAttribute('data-url');
-            const product = this.getAttribute('data-product');
-            
-            // Parse JSON data with error handling
-            let categories = [];
-            try {
-                categories = JSON.parse(this.getAttribute('data-categories') || '[]');
-            } catch (e) {
-                console.error('Error parsing categories:', e);
-            }
-            
-            let types = [];
-            try {
-                types = JSON.parse(this.getAttribute('data-types') || '[]');
-            } catch (e) {
-                console.error('Error parsing types:', e);
-            }
-            
-            let status = [];
-            try {
-                status = JSON.parse(this.getAttribute('data-status') || '[]');
-            } catch (e) {
-                console.error('Error parsing status:', e);
-            }
-            
-            // Set modal content
-            document.getElementById('previewTitle').textContent = title;
-            document.getElementById('previewDescription').innerHTML = description;
-            
-            // Set read more link
-            const readMoreBtn = document.querySelector('.btn-read-more');
-            if (readMoreBtn) {
-                readMoreBtn.href = url;
+        // Initialize the preview modal
+        const previewModal = new bootstrap.Modal(previewModalEl);
+        
+        // Handle preview button clicks
+        const previewButtons = document.querySelectorAll('.btn-preview');
+        previewButtons.forEach(button => {
+            button.addEventListener('click', function(e) {
+                e.preventDefault();
                 
-                // Add event listener to close modal when "Read Full Update" is clicked
-                readMoreBtn.onclick = function() {
-                    previewModal.hide();
-                    return true;
-                };
-            }
-            
-            // Clear previous metadata
-            const metaInfo = document.querySelector('#previewModal .meta-info');
-            if (metaInfo) {
-                metaInfo.innerHTML = '';
+                // Get data from button attributes
+                const title = this.getAttribute('data-title');
+                const description = this.getAttribute('data-description');
+                const date = this.getAttribute('data-date');
+                const provider = this.getAttribute('data-provider');
+                const url = this.getAttribute('data-url');
+                const product = this.getAttribute('data-product');
                 
-                // Add date and provider
-                const dateDiv = document.createElement('div');
-                dateDiv.className = 'meta-item date';
-                dateDiv.innerHTML = `<span class="meta-label">Published:</span> <span class="meta-value">${date}</span>`;
-                metaInfo.appendChild(dateDiv);
-                
-                const providerDiv = document.createElement('div');
-                providerDiv.className = 'meta-item provider';
-                providerDiv.innerHTML = `<span class="meta-label">Provider:</span> <span class="meta-value">${provider}</span>`;
-                metaInfo.appendChild(providerDiv);
-                
-                // Add product info based on provider
-                if (provider === 'aws' && product) {
-                    const productDiv = document.createElement('div');
-                    productDiv.className = 'meta-item product';
-                    productDiv.innerHTML = `<span class="meta-label">Product:</span> <span class="meta-value"><span class="badge bg-primary">${product}</span></span>`;
-                    metaInfo.appendChild(productDiv);
-                } else if (provider === 'azure') {
-                    // Add products for Azure
-                    if (categories && categories.length > 0) {
-                        const productsDiv = document.createElement('div');
-                        productsDiv.className = 'meta-item products';
-                        productsDiv.innerHTML = `<span class="meta-label">Products:</span> <span class="meta-value">${categories.map(c => `<span class="badge bg-primary">${c}</span>`).join(' ')}</span>`;
-                        metaInfo.appendChild(productsDiv);
-                    }
-                    
-                    // Add status for Azure
-                    if (status && status.length > 0) {
-                        const statusDiv = document.createElement('div');
-                        statusDiv.className = 'meta-item status';
-                        statusDiv.innerHTML = `<span class="meta-label">Status:</span> <span class="meta-value">${status.map(s => `<span class="badge bg-success">${s}</span>`).join(' ')}</span>`;
-                        metaInfo.appendChild(statusDiv);
-                    }
-                    
-                    // Add types for Azure
-                    if (types && types.length > 0) {
-                        const typesDiv = document.createElement('div');
-                        typesDiv.className = 'meta-item types';
-                        typesDiv.innerHTML = `<span class="meta-label">Types:</span> <span class="meta-value">${types.map(t => `<span class="badge bg-secondary">${t}</span>`).join(' ')}</span>`;
-                        metaInfo.appendChild(typesDiv);
-                    }
-                } else if (categories && categories.length > 0) {
-                    const categoriesDiv = document.createElement('div');
-                    categoriesDiv.className = 'meta-item categories';
-                    categoriesDiv.innerHTML = `<span class="meta-label">Categories:</span> <span class="meta-value">${categories.map(c => `<span class="badge bg-secondary">${c}</span>`).join(' ')}</span>`;
-                    metaInfo.appendChild(categoriesDiv);
+                // Parse JSON data with error handling
+                let categories = [];
+                try {
+                    categories = JSON.parse(this.getAttribute('data-categories') || '[]');
+                } catch (e) {
+                    console.error('Error parsing categories:', e);
                 }
-            }
-            
-            // Show the modal
-            previewModal.show();
-        });
-    });
-    
-    // Handle explain button clicks
-    document.querySelectorAll('.btn-explain').forEach(button => {
-        button.addEventListener('click', async function() {
-            const updateId = this.getAttribute('data-update-id');
-            const spinner = document.querySelector('#explanationModal .spinner-border');
-            const explanationText = document.querySelector('#explanationModal .explanation-text');
-            
-            // Show modal with loading spinner
-            explanationModal.show();
-            spinner.classList.remove('d-none');
-            explanationText.textContent = '';
-            
-            try {                const response = await fetch(`{{ url_for('get_update_explanation', update_id=0) }}`.replace('0', updateId));
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
+                
+                let types = [];
+                try {
+                    types = JSON.parse(this.getAttribute('data-types') || '[]');
+                } catch (e) {
+                    console.error('Error parsing types:', e);
                 }
-                const data = await response.json();
-                if (data.explanation) {
-                    explanationText.textContent = data.explanation;
-                } else {
-                    explanationText.textContent = 'No explanation available. Generating one...';
-                    // Trigger explanation generation
-                    const generateResponse = await fetch(`{{ url_for('generate_update_explanation', update_id=0) }}`.replace('0', updateId), {
-                        method: 'POST'
-                    });
-                    if (generateResponse.ok) {
-                        const generatedData = await generateResponse.json();
-                        if (generatedData.explanation) {
-                            explanationText.textContent = generatedData.explanation;
-                        } else {
-                            explanationText.textContent = 'Could not generate explanation at this time.';
+                
+                let status = [];
+                try {
+                    status = JSON.parse(this.getAttribute('data-status') || '[]');
+                } catch (e) {
+                    console.error('Error parsing status:', e);
+                }
+                
+                console.log('Preview data:', {
+                    title, provider, url, product, 
+                    categories, types, status
+                });
+                
+                // Set modal content
+                document.getElementById('previewTitle').textContent = title;
+                document.getElementById('previewDescription').innerHTML = description;
+                
+                // Set read more link
+                const readMoreBtn = document.querySelector('.btn-read-more');
+                if (readMoreBtn) {
+                    readMoreBtn.href = url;
+                    
+                    // Add event listener to close modal when "Read Full Update" is clicked
+                    readMoreBtn.onclick = function() {
+                        // Close the modal
+                        previewModal.hide();
+                        
+                        // Return true to continue with the default link behavior (opening the URL)
+                        return true;
+                    };
+                }
+                
+                // Clear previous metadata
+                const metaInfo = document.querySelector('#previewModal .meta-info');
+                if (metaInfo) {
+                    metaInfo.innerHTML = '';
+                    
+                    // Add date and provider
+                    const dateDiv = document.createElement('div');
+                    dateDiv.className = 'meta-item date';
+                    dateDiv.innerHTML = `<span class="meta-label">Published:</span> <span class="meta-value">${date}</span>`;
+                    metaInfo.appendChild(dateDiv);
+                    
+                    const providerDiv = document.createElement('div');
+                    providerDiv.className = 'meta-item provider';
+                    providerDiv.innerHTML = `<span class="meta-label">Provider:</span> <span class="meta-value">${provider}</span>`;
+                    metaInfo.appendChild(providerDiv);
+                    
+                    // Add product info based on provider
+                    if (provider === 'aws' && product) {
+                        const productDiv = document.createElement('div');
+                        productDiv.className = 'meta-item product';
+                        productDiv.innerHTML = `<span class="meta-label">Product:</span> <span class="meta-value"><span class="badge bg-primary">${product}</span></span>`;
+                        metaInfo.appendChild(productDiv);
+                    } else if (provider === 'azure') {
+                        // Add products for Azure
+                        if (categories && categories.length > 0) {
+                            const productsDiv = document.createElement('div');
+                            productsDiv.className = 'meta-item products';
+                            productsDiv.innerHTML = `<span class="meta-label">Products:</span> <span class="meta-value">${categories.map(c => `<span class="badge bg-primary">${c}</span>`).join(' ')}</span>`;
+                            metaInfo.appendChild(productsDiv);
                         }
+                        
+                        // Add status for Azure
+                        if (status && status.length > 0) {
+                            const statusDiv = document.createElement('div');
+                            statusDiv.className = 'meta-item status';
+                            statusDiv.innerHTML = `<span class="meta-label">Status:</span> <span class="meta-value">${status.map(s => `<span class="badge bg-success">${s}</span>`).join(' ')}</span>`;
+                            metaInfo.appendChild(statusDiv);
+                        }
+                        
+                        // Add types for Azure
+                        if (types && types.length > 0) {
+                            const typesDiv = document.createElement('div');
+                            typesDiv.className = 'meta-item types';
+                            typesDiv.innerHTML = `<span class="meta-label">Types:</span> <span class="meta-value">${types.map(t => `<span class="badge bg-secondary">${t}</span>`).join(' ')}</span>`;
+                            metaInfo.appendChild(typesDiv);
+                        }
+                    } else if (categories && categories.length > 0) {
+                        const categoriesDiv = document.createElement('div');
+                        categoriesDiv.className = 'meta-item categories';
+                        categoriesDiv.innerHTML = `<span class="meta-label">Categories:</span> <span class="meta-value">${categories.map(c => `<span class="badge bg-secondary">${c}</span>`).join(' ')}</span>`;
+                        metaInfo.appendChild(categoriesDiv);
                     }
                 }
-            } catch (error) {
-                console.error('Error:', error);
-                explanationText.textContent = 'Error: Failed to fetch explanation: ' + error.message;
-            } finally {
-                spinner.classList.add('d-none');
-            }
+                
+                // Show the modal
+                previewModal.show();
+            });
         });
-    });
+    }
     
-    // Handle filter dropdowns
+    // Handle explanation button clicks
+    const explanationModalEl = document.getElementById('explanationModal');
+    if (explanationModalEl) {
+        const explanationModal = new bootstrap.Modal(explanationModalEl);
+        
+        // Handle explanation button clicks
+        const explainButtons = document.querySelectorAll('.btn-explain');
+        explainButtons.forEach(button => {
+            button.addEventListener('click', function(e) {
+                e.preventDefault();
+                
+                // Reset the modal content
+                const explanationText = document.getElementById('explanationText');
+                const explanationError = document.querySelector('.explanation-error');
+                const spinner = document.querySelector('.explanation-content .spinner-border');
+                
+                explanationText.textContent = '';
+                explanationError.style.display = 'none';
+                spinner.style.display = 'block';
+                
+                // Get the update ID from the data attribute
+                const updateId = this.getAttribute('data-update-id');
+                
+                // Fetch the explanation from the API
+                fetch(`/api/update/${updateId}/explain`)
+                    .then(response => response.json())
+                    .then(data => {
+                        spinner.style.display = 'none';
+                        
+                        if (data.error) {
+                            explanationError.style.display = 'block';
+                            explanationError.querySelector('p').textContent = data.error;
+                        } else {
+                            explanationText.textContent = data.explanation;
+                        }
+                    })
+                    .catch(error => {
+                        spinner.style.display = 'none';
+                        explanationError.style.display = 'block';
+                        explanationError.querySelector('p').textContent = 'Error loading explanation. Please try again.';
+                        console.error('Error fetching explanation:', error);
+                    });
+            });
+        });
+    }
+    
+    // Filter dropdowns
     const filterHeaders = document.querySelectorAll('.filter-header');
     filterHeaders.forEach(header => {
         header.addEventListener('click', function() {
@@ -875,5 +822,4 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 </script>
-{% endblock scripts %}
-{% endblock content %}
+{% endblock %}
