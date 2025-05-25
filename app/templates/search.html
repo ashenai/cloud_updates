@@ -29,11 +29,12 @@
 
 {% for result in results %}
 <div class="card mb-3">
-    <div class="card-body">
-        <span class="badge provider-badge {{ result['update'].provider }}-badge float-end">
+    <div class="card-body">        <span class="badge provider-badge {{ result['update'].provider }}-badge float-end">
             {{ result['update'].provider|upper }}
         </span>
-        <h5 class="card-title">{{ result['update'].title }}</h5>
+        <h5 class="card-title">
+            <a href="{{ result['update'].url }}" target="_blank" class="update-title-link">{{ result['update'].title }}</a>
+        </h5>
         {% if result['update'].description %}
         <p class="card-text">{{ result['update'].description[:200] }}...</p>
         {% endif %}
@@ -56,16 +57,16 @@
                     <i class="bi bi-graph-up"></i> 
                     Relevance: {{ "%.1f"|format(result['score'] * 100) }}%
                 </span>
-            </small>
-            <div>
+            </small>            <div>
                 <button type="button" class="btn btn-sm btn-outline-secondary me-2" 
                         data-bs-toggle="modal" 
                         data-bs-target="#previewModal{{ result['update'].id }}">
                     Preview
                 </button>
-                <a href="{{ result['update'].url }}" class="btn btn-sm btn-outline-primary" target="_blank">
-                    Read More
-                </a>
+                <button type="button" class="btn btn-sm btn-outline-info explain-btn" 
+                        data-update-id="{{ result['update'].id }}">
+                    Explain
+                </button>
             </div>
         </div>
     </div>
@@ -113,6 +114,81 @@
 {% endif %}
 {% endblock %}
 
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Add event listeners to all Explain buttons
+    document.querySelectorAll('.explain-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const updateId = this.getAttribute('data-update-id');
+            const cardBody = this.closest('.card-body');
+            const existingExplanation = cardBody.querySelector('.explanation-container');
+            
+            // If explanation already exists, toggle its visibility
+            if (existingExplanation) {
+                if (existingExplanation.style.display === 'none') {
+                    existingExplanation.style.display = 'block';
+                } else {
+                    existingExplanation.style.display = 'none';
+                }
+                return;
+            }
+            
+            // Show loading state
+            this.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Loading...';
+            this.disabled = true;
+            
+            // Fetch explanation from API
+            fetch(`/api/update/${updateId}/explain`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Failed to get explanation');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    // Create explanation container
+                    const explanationContainer = document.createElement('div');
+                    explanationContainer.className = 'explanation-container mt-3';
+                    
+                    // Add heading
+                    const heading = document.createElement('h6');
+                    heading.className = 'mb-2';
+                    heading.innerHTML = '<i class="fas fa-robot me-2"></i> AI Explanation';
+                    explanationContainer.appendChild(heading);
+                    
+                    // Add explanation text
+                    const explanationText = document.createElement('p');
+                    explanationText.className = 'mb-0';
+                    explanationText.textContent = data.explanation || 'No explanation available.';
+                    explanationContainer.appendChild(explanationText);
+                    
+                    // Add explanation to card
+                    cardBody.appendChild(explanationContainer);
+                    
+                    // Reset button
+                    this.innerHTML = 'Explain';
+                    this.disabled = false;
+                })
+                .catch(error => {
+                    console.error('Error fetching explanation:', error);
+                    
+                    // Show error message
+                    const errorContainer = document.createElement('div');
+                    errorContainer.className = 'explanation-container mt-3 bg-light border-danger';
+                    errorContainer.innerHTML = '<p class="mb-0 text-danger">Failed to get explanation. Please try again.</p>';
+                    cardBody.appendChild(errorContainer);
+                    
+                    // Reset button
+                    this.innerHTML = 'Explain';
+                    this.disabled = false;
+                });
+        });
+    });
+});
+</script>
+{% endblock %}
+
 {% block styles %}
 {{ super() }}
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
@@ -127,6 +203,22 @@
 }
 .meta-item:last-child {
     margin-bottom: 0;
+}
+.update-title-link {
+    color: #0d6efd;
+    text-decoration: none;
+    transition: color 0.15s ease-in-out;
+}
+.update-title-link:hover {
+    color: #0a58ca;
+    text-decoration: underline;
+}
+.explanation-container {
+    background-color: #f0f8ff; 
+    border-radius: 0.25rem;
+    padding: 1rem;
+    margin-top: 1rem;
+    border-left: 4px solid #0dcaf0;
 }
 </style>
 {% endblock %}
