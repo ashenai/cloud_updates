@@ -27,17 +27,23 @@
         <!-- Calendar Widget Column -->
         <div class="col-md-3">
             {% include 'calendar_widget.html' %}
-        </div>
-
-        <!-- Themes Column -->
+        </div>        <!-- Themes Column -->
         <div class="col-md-9">
             <h2 class="mb-4">Themes for Week of {{ selected_week.strftime('%B %d, %Y') }}</h2>
+              <div class="alert alert-info mb-4 ai-notice">
+                <div class="d-flex align-items-center">
+                    <i class="fas fa-robot me-3" style="font-size: 1.5rem;"></i>
+                    <div>
+                        <strong>AI-Generated Content</strong>
+                        <p class="mb-0">These themes have been automatically identified and generated using artificial intelligence based on recent cloud updates.</p>
+                    </div>
+                </div>
+            </div>
             
             {% if themes %}
                 {% set aws_themes = themes|selectattr('provider', 'equalto', 'aws')|list %}
                 {% set azure_themes = themes|selectattr('provider', 'equalto', 'azure')|list %}
-                
-                <!-- AWS Themes -->
+                  <!-- AWS Themes -->
                 {% if aws_themes %}
                     <div class="card mb-4">
                         <div class="card-header bg-primary text-white">
@@ -48,6 +54,13 @@
                                 <div class="theme-item mb-3">
                                     <h4>{{ theme.theme_name }}</h4>
                                     <p>{{ theme.description }}</p>
+                                    {% if theme.services %}
+                                    <p><strong>List of Services:</strong> 
+                                        {% for service in theme.services %}
+                                            <span class="badge bg-light text-dark me-1 mb-1">{{ service }}</span>
+                                        {% endfor %}
+                                    </p>
+                                    {% endif %}
                                     <p class="text-muted">Relevance Score: {{ "%.2f"|format(theme.relevance_score) }}</p>
                                 </div>
                                 {% if not loop.last %}<hr>{% endif %}
@@ -63,10 +76,16 @@
                             <h3 class="mb-0">Azure Themes</h3>
                         </div>
                         <div class="card-body">
-                            {% for theme in azure_themes %}
-                                <div class="theme-item mb-3">
+                            {% for theme in azure_themes %}                                <div class="theme-item mb-3">
                                     <h4>{{ theme.theme_name }}</h4>
                                     <p>{{ theme.description }}</p>
+                                    {% if theme.services %}
+                                    <p><strong>List of Services:</strong> 
+                                        {% for service in theme.services %}
+                                            <span class="badge bg-light text-dark me-1 mb-1">{{ service }}</span>
+                                        {% endfor %}
+                                    </p>
+                                    {% endif %}
                                     <p class="text-muted">Relevance Score: {{ "%.2f"|format(theme.relevance_score) }}</p>
                                 </div>
                                 {% if not loop.last %}<hr>{% endif %}

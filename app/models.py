@@ -125,7 +125,21 @@ class WeeklyTheme(db.Model):
     description = db.Column(db.Text)
     relevance_score = db.Column(db.Float)  # How relevant/important this theme is (0-1)
     update_count = db.Column(db.Integer)  # Number of updates in this theme
+    _services = db.Column('services', db.Text, default='[]')  # List of services involved in this theme
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    @property
+    def services(self):
+        return json.loads(self._services)
+    
+    @services.setter
+    def services(self, value):
+        if isinstance(value, str):
+            self._services = json.dumps([value])
+        elif isinstance(value, (list, tuple)):
+            self._services = json.dumps(list(value))
+        else:
+            self._services = '[]'
     
     def __repr__(self):
         return f'<WeeklyTheme {self.provider} - {self.theme_name} ({self.week_start.strftime("%Y-%m-%d")})>'

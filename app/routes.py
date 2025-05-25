@@ -507,8 +507,7 @@ def init_routes(app):
                     print(f"\nProcessing {provider} updates for week {selected_week}")  # Debug print
                     try:
                         themes = analyzer.generate_themes(provider_updates)
-                        
-                        # Save themes
+                          # Save themes
                         for theme_data in themes:
                             # Create WeeklyTheme
                             weekly_theme = WeeklyTheme(
@@ -517,9 +516,11 @@ def init_routes(app):
                                 theme_name=theme_data['name'],
                                 description=theme_data['description'],
                                 relevance_score=theme_data['score'],
-                                update_count=theme_data['update_count']
+                                update_count=theme_data['update_count'],
+                                services=theme_data.get('services', [])
                             )
                             print(f"Creating WeeklyTheme: {weekly_theme.theme_name} for week {weekly_theme.week_start}")  # Debug print
+                            print(f"Services for this theme: {theme_data.get('services', [])}")  # Debug print
                             db.session.add(weekly_theme)
                         
                     except Exception as e:
