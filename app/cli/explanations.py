@@ -43,7 +43,7 @@ def generate_explanations(force_generation):
         processed = 0
         with click.progressbar(updates, label='Generating explanations') as bar:
             for update in bar:                
-                prompt = f"provide brief explanation for: '{update.title}'."
+                prompt = f"provide brief explanation for '{update.title}' ignore keywords like \"in preview\" or \"launched\" or \"retired\" or \"in development\" from title for generating description. For \"Public Preview\" and \"Generally Available\" status don't elaborate and just mention the status as a separate line. Create paragraphs."
                 
                 # Implement retry logic with exponential backoff
                 max_retries = 5

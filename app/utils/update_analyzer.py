@@ -23,7 +23,7 @@ def generate_explanation(title: str) -> str:
         raise Exception('ANTHROPIC_API_KEY environment variable not set')
         
     client = Anthropic(api_key=api_key)
-    prompt = f"provide brief explanation for '{title}'"
+    prompt = f"provide brief explanation for '{title}' ignore keywords like \"in preview\" or \"launched\" or \"retired\" or \"in development\" from title for generating description. For \"Public Preview\" and \"Generally Available\" status don't elaborate and just mention the status as a separate line. Create paragraphs"
     
     message = client.messages.create(
         model="claude-3-5-sonnet-20240620",
