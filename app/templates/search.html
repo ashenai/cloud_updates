@@ -62,9 +62,9 @@
                         data-bs-toggle="modal" 
                         data-bs-target="#previewModal{{ result['update'].id }}">
                     Preview
-                </button>
-                <button type="button" class="btn btn-sm btn-outline-info explain-btn" 
-                        data-update-id="{{ result['update'].id }}">
+                </button>                <button type="button" class="btn btn-sm btn-outline-info explain-btn" 
+                        data-update-id="{{ result['update'].id }}"
+                        data-explain-url="{{ url_for('get_update_explanation', update_id=result['update'].id) }}">
                     Explain
                 </button>
             </div>
@@ -137,9 +137,11 @@ document.addEventListener('DOMContentLoaded', function() {
             // Show loading state
             this.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Loading...';
             this.disabled = true;
+              // Get the explain URL from the button's data attribute
+            const explainUrl = this.getAttribute('data-explain-url');
             
-            // Fetch explanation from API
-            fetch(`/api/update/${updateId}/explain`)
+            // Fetch explanation from API using the URL from data attribute
+            fetch(explainUrl)
                 .then(response => {
                     if (!response.ok) {
                         throw new Error('Failed to get explanation');
