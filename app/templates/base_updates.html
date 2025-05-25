@@ -441,7 +441,8 @@
                 <button class="btn btn-sm btn-outline-primary me-2 btn-explain" 
                         data-bs-toggle="modal" 
                         data-bs-target="#explanationModal" 
-                        data-update-id="{{ update.id }}">
+                        data-update-id="{{ update.id }}"
+                        data-explain-url="{{ url_for('get_update_explanation', update_id=update.id) }}">
                     Explain
                 </button>
                 <button class="btn btn-sm btn-outline-primary btn-preview" 
@@ -544,6 +545,8 @@
 {% block scripts %}
 {{ super() }}
 <script>
+// No need for apiUrls anymore as we're using direct data attributes
+
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize Bootstrap tooltips
     var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
@@ -702,8 +705,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Get the update ID from the data attribute
                 const updateId = this.getAttribute('data-update-id');
                 
+                // Get the URL directly from the button's data attribute
+                const explainUrl = this.getAttribute('data-explain-url');
+                
+                console.log("Fetching from URL:", explainUrl);
+                
                 // Fetch the explanation from the API
-                fetch(`/api/update/${updateId}/explain`)
+                fetch(explainUrl)
                     .then(response => response.json())
                     .then(data => {
                         spinner.style.display = 'none';
