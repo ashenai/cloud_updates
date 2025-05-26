@@ -27,7 +27,7 @@ from flask import render_template, flash, redirect, url_for, request, jsonify, c
 from sqlalchemy import func, extract
 from app import db
 from app.models import Update, WeeklyInsight, WeeklyTheme
-from app.utils.update_analyzer import generate_explanation
+from app.utils.update_analyzer import generate_explanation, format_explanation_text
 from app.rag.embeddings import UpdateSearch
 from app.scraper.aws_scraper import AWSScraper
 from app.scraper.azure_scraper import AzureScraper
@@ -961,8 +961,28 @@ def init_routes(app):
                 return jsonify({
                     'error': 'Could not generate explanation for this update.'
                 }), 500
+            
+            # First apply traditional formatting (for backward compatibility)
+            formatted_explanation = update.explanation
+            if formatted_explanation:
+                # Replace double line breaks with paragraph tags
+                formatted_explanation = '<p>' + formatted_explanation.replace('\r\n\r\n', '</p><p>') + '</p>'
+                # Replace single line breaks with <br> tags
+                formatted_explanation = formatted_explanation.replace('\r\n', '<br>')
+                # Handle the case where we might have \n\n instead of \r\n\r\n
+                formatted_explanation = formatted_explanation.replace('<p><br></p>', '<p>')
+            
+            # For newly generated explanations or if we want enhanced formatting,
+            # also try the spaCy-based paragraph detection if the text doesn't already have HTML
+            if update.explanation and '<p>' not in update.explanation:
+                try:
+                    improved_explanation = format_explanation_text(update.explanation)
+                    if improved_explanation:
+                        formatted_explanation = improved_explanation
+                except Exception as format_error:
+                    current_app.logger.warning(f"SpaCy formatting failed, using traditional formatting: {str(format_error)}")
                 
-            return jsonify({'explanation': update.explanation})
+            return jsonify({'explanation': formatted_explanation})
             
         except Exception as e:
             current_app.logger.error(f"Error in get_update_explanation: {str(e)}")

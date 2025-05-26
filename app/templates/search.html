@@ -158,11 +158,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     heading.className = 'mb-2';
                     heading.innerHTML = '<i class="fas fa-robot me-2"></i> AI Explanation';
                     explanationContainer.appendChild(heading);
-                    
-                    // Add explanation text
-                    const explanationText = document.createElement('p');
-                    explanationText.className = 'mb-0';
-                    explanationText.textContent = data.explanation || 'No explanation available.';
+                      // Add explanation text
+                    const explanationText = document.createElement('div');
+                    explanationText.className = 'mb-0 explanation-text';
+                    explanationText.innerHTML = data.explanation || 'No explanation available.';
                     explanationContainer.appendChild(explanationText);
                     
                     // Add explanation to card
@@ -221,6 +220,14 @@ document.addEventListener('DOMContentLoaded', function() {
     padding: 1rem;
     margin-top: 1rem;
     border-left: 4px solid #0dcaf0;
+}
+
+.explanation-text p {
+    margin-bottom: 1rem;
+}
+
+.explanation-text p:last-child {
+    margin-bottom: 0;
 }
 </style>
 {% endblock %}

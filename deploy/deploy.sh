@@ -37,6 +37,11 @@ source "$VENV_DIR/bin/activate"
 pip install --no-cache-dir -r "$APP_DIR/requirements.txt"
 pip install --no-cache-dir uwsgi
 
+# Download spaCy language model
+echo "Downloading spaCy language model..."
+cd "$APP_DIR"
+python -m app.utils.download_spacy_model
+
 # Initialize database if needed
 if [ ! -f "$APP_DIR/instance/cloud_updates.db" ]; then
     cd "$APP_DIR"
