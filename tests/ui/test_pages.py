@@ -5,18 +5,32 @@ from playwright.sync_api import expect, Page
 def test_homepage(page: Page, flask_server: str):
     """Test homepage loads correctly with both AWS and Azure cards."""
     # Navigate to homepage
+    print(f"Navigating to {flask_server}")
     page.goto(flask_server)
     
+    # Debug - Take screenshot and print page content
+    page.screenshot(path="homepage_debug.png")
+    print("Page content:")
+    print(page.content())
+    
+    # Debug - Check what links exist
+    all_links = page.locator('a').all()
+    print("All links on the page:")
+    for link in all_links:
+        try:
+            print(f"Link text: '{link.inner_text()}', href: '{link.get_attribute('href')}'")
+        except Exception as e:
+            print(f"Error getting link info: {e}")
+            
     # Check page title
     expect(page).to_have_title("Cloud Updates")
+      # Verify AWS card with more specific selectors
+    expect(page.locator('h2:has-text("AWS")')).to_be_visible()
+    expect(page.locator('.btn:has-text("View All AWS Updates")')).to_be_visible()
     
-    # Verify AWS card
-    expect(page.locator('h2:text("AWS Updates")')).to_be_visible()
-    expect(page.locator('a:text("View AWS Updates")')).to_be_visible()
-    
-    # Verify Azure card
-    expect(page.locator('h2:text("Azure Updates")')).to_be_visible()
-    expect(page.locator('a:text("View Azure Updates")')).to_be_visible()
+    # Verify Azure card with more specific selectors
+    expect(page.locator('h2:has-text("Azure")')).to_be_visible()
+    expect(page.locator('.btn:has-text("View All Azure Updates")')).to_be_visible()
 
 def test_aws_updates_page(page: Page, flask_server: str):
     """Test AWS Updates page loads correctly."""

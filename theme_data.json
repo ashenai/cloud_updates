@@ -1,0 +1,674 @@
+{
+  "type": "table",
+  "database": null,
+  "name": "weekly_theme",
+  "withoutRowId": false,
+  "strict": false,
+  "ddl": "CREATE TABLE weekly_theme (\n\tid INTEGER NOT NULL, \n\tweek_start DATETIME NOT NULL, \n\tprovider VARCHAR(50) NOT NULL, \n\ttheme_name VARCHAR(200) NOT NULL, \n\tdescription TEXT, \n\trelevance_score FLOAT, \n\tupdate_count INTEGER, \n\tcreated_at DATETIME, \n\tPRIMARY KEY (id)\n)",
+  "columns": [
+    {
+      "name": "id",
+      "type": "INTEGER",
+      "constraints": [
+        {
+          "type": "NOT NULL",
+          "definition": "NOT NULL"
+        }
+      ]
+    },
+    {
+      "name": "week_start",
+      "type": "DATETIME",
+      "constraints": [
+        {
+          "type": "NOT NULL",
+          "definition": "NOT NULL"
+        }
+      ]
+    },
+    {
+      "name": "provider",
+      "type": "VARCHAR",
+      "constraints": [
+        {
+          "type": "NOT NULL",
+          "definition": "NOT NULL"
+        }
+      ]
+    },
+    {
+      "name": "theme_name",
+      "type": "VARCHAR",
+      "constraints": [
+        {
+          "type": "NOT NULL",
+          "definition": "NOT NULL"
+        }
+      ]
+    },
+    {
+      "name": "description",
+      "type": "TEXT"
+    },
+    {
+      "name": "relevance_score",
+      "type": "FLOAT"
+    },
+    {
+      "name": "update_count",
+      "type": "INTEGER"
+    },
+    {
+      "name": "created_at",
+      "type": "DATETIME"
+    },
+    {
+      "name": "services",
+      "type": "TEXT",
+      "constraints": [
+        {
+          "type": "DEFAULT",
+          "definition": "DEFAULT '[]'"
+        }
+      ]
+    }
+  ],
+  "constraints": [
+    {
+      "type": "PRIMARY KEY",
+      "definition": "PRIMARY KEY (id)\n"
+    }
+  ],
+  "rows": [
+    [
+      1,
+      "2025-03-31 00:00:00.000000",
+      "aws",
+      "Database and Analytics Enhancements",
+      "Improvements to database services and analytics capabilities, including new versions, features, and integrations.",
+      0.39230769230769225,
+      9,
+      "2025-04-22 23:14:00.587181"
+    ],
+    [
+      2,
+      "2025-03-31 00:00:00.000000",
+      "aws",
+      "Regional Expansion",
+      "Expansion of AWS services and features to new regions, improving global availability and compliance with local regulations.",
+      0.3846153846153846,
+      8,
+      "2025-04-22 23:14:00.587190"
+    ],
+    [
+      3,
+      "2025-03-31 00:00:00.000000",
+      "aws",
+      "Enhanced Security and Compliance",
+      "Updates focused on improving security features, compliance certifications, and data protection capabilities across AWS services.",
+      0.3769230769230769,
+      7,
+      "2025-04-22 23:14:00.587193"
+    ],
+    [
+      4,
+      "2025-03-31 00:00:00.000000",
+      "aws",
+      "AI and Machine Learning Advancements",
+      "Enhancements to AI and ML services, including new features for generative AI, natural language processing, and data analysis.",
+      0.3692307692307692,
+      6,
+      "2025-04-22 23:14:00.587195"
+    ],
+    [
+      5,
+      "2025-03-31 00:00:00.000000",
+      "aws",
+      "Developer Tools and Infrastructure as Code",
+      "New features and updates for developer tools and infrastructure as code capabilities, improving productivity and deployment processes.",
+      0.3315384615384615,
+      5,
+      "2025-04-22 23:14:00.587199"
+    ],
+    [
+      6,
+      "2025-03-31 00:00:00.000000",
+      "azure",
+      "Service Retirements",
+      "Announcements of upcoming retirements for various Azure services and features, with migration recommendations provided.",
+      0.34941495124593713,
+      10,
+      "2025-04-22 23:14:00.587201"
+    ],
+    [
+      7,
+      "2025-03-31 00:00:00.000000",
+      "azure",
+      "AKS Networking Enhancements",
+      "Improvements to Azure Kubernetes Service networking capabilities, including support for multiple load balancers, advanced policies, and enhanced traffic management.",
+      0.3137811484290357,
+      9,
+      "2025-04-22 23:14:00.587204"
+    ],
+    [
+      8,
+      "2025-03-31 00:00:00.000000",
+      "azure",
+      "AKS Monitoring and Cost Optimization",
+      "New capabilities for monitoring AKS clusters, including auto-instrumentation for applications and cost optimization recommendations.",
+      0.2799783315276273,
+      3,
+      "2025-04-22 23:14:00.587207"
+    ],
+    [
+      9,
+      "2025-03-31 00:00:00.000000",
+      "azure",
+      "Security and Compliance Improvements",
+      "Enhancements to security features across Azure services, including encryption support and network flow logging.",
+      0.2799783315276273,
+      3,
+      "2025-04-22 23:14:00.587209"
+    ],
+    [
+      10,
+      "2025-03-31 00:00:00.000000",
+      "azure",
+      "Multi-cluster Management",
+      "Features for managing and orchestrating workloads across multiple Kubernetes clusters, including rollout strategies and auto-upgrades.",
+      0.21997833152762727,
+      3,
+      "2025-04-22 23:14:00.587212"
+    ],
+    [
+      11,
+      "2025-04-07 00:00:00.000000",
+      "aws",
+      "Enhanced AI/ML Capabilities",
+      "Expansion of AI and machine learning features, including new models and improved functionalities for existing services.",
+      0.3718518518518518,
+      7,
+      "2025-04-22 23:14:00.587215"
+    ],
+    [
+      12,
+      "2025-04-07 00:00:00.000000",
+      "aws",
+      "Database and Analytics Improvements",
+      "Updates to database services and analytics platforms, including new versions and enhanced features.",
+      0.35703703703703704,
+      5,
+      "2025-04-22 23:14:00.587217"
+    ],
+    [
+      13,
+      "2025-04-07 00:00:00.000000",
+      "aws",
+      "Networking and Security Enhancements",
+      "Improvements in networking capabilities and security features across various AWS services.",
+      0.3496296296296296,
+      4,
+      "2025-04-22 23:14:00.587220"
+    ],
+    [
+      14,
+      "2025-04-07 00:00:00.000000",
+      "aws",
+      "Cost Optimization and Performance",
+      "New features and pricing updates aimed at improving cost efficiency and performance for customers.",
+      0.3196296296296296,
+      4,
+      "2025-04-22 23:14:00.587223"
+    ],
+    [
+      15,
+      "2025-04-07 00:00:00.000000",
+      "aws",
+      "Instance Type Availability Expansion",
+      "Increased availability of various EC2 instance types across different AWS regions.",
+      0.27444444444444444,
+      6,
+      "2025-04-22 23:14:00.587228"
+    ],
+    [
+      16,
+      "2025-04-07 00:00:00.000000",
+      "azure",
+      "Enhanced Data Services",
+      "Improvements to database and data analytics services, including new connectors, mirroring capabilities, and performance analysis tools.",
+      0.38515151515151513,
+      5,
+      "2025-04-22 23:14:00.587230"
+    ],
+    [
+      17,
+      "2025-04-07 00:00:00.000000",
+      "azure",
+      "Security and Compliance Enhancements",
+      "New features and updates focused on improving security, access control, and threat detection across Azure services.",
+      0.38515151515151513,
+      5,
+      "2025-04-22 23:14:00.587233"
+    ],
+    [
+      18,
+      "2025-04-07 00:00:00.000000",
+      "azure",
+      "AI-Powered Azure Management",
+      "Integration of AI capabilities, particularly Microsoft Copilot, into various Azure services for enhanced management, troubleshooting, and insights.",
+      0.343030303030303,
+      4,
+      "2025-04-22 23:14:00.587235"
+    ],
+    [
+      19,
+      "2025-04-07 00:00:00.000000",
+      "azure",
+      "Networking and Connectivity Improvements",
+      "Enhancements to Azure's networking capabilities, including expanded regional availability and improved integration with other services.",
+      0.343030303030303,
+      4,
+      "2025-04-22 23:14:00.587238"
+    ],
+    [
+      20,
+      "2025-04-07 00:00:00.000000",
+      "azure",
+      "Sustainability and Optimization",
+      "New tools and features for optimizing resource usage, improving performance, and monitoring environmental impact.",
+      0.33090909090909093,
+      3,
+      "2025-04-22 23:14:00.587241"
+    ],
+    [
+      21,
+      "2025-03-24 00:00:00.000000",
+      "azure",
+      "Service Retirements",
+      "Multiple Azure services and features are being retired, with alternatives provided in many cases. This includes older versions of APIs, tools, and platform components.",
+      0.5031806707536963,
+      13,
+      "2025-04-22 23:14:00.587243"
+    ],
+    [
+      22,
+      "2025-03-24 00:00:00.000000",
+      "azure",
+      "Data Management Enhancements",
+      "New features and improvements in data storage, backup, and retrieval capabilities across various Azure database and storage services.",
+      0.34509556437071764,
+      5,
+      "2025-04-22 23:14:00.587246"
+    ],
+    [
+      23,
+      "2025-03-24 00:00:00.000000",
+      "azure",
+      "Networking and Security Updates",
+      "Improvements in networking capabilities, security features, and performance optimizations for various Azure services.",
+      0.30658492607284527,
+      4,
+      "2025-04-22 23:14:00.587249"
+    ],
+    [
+      24,
+      "2025-03-24 00:00:00.000000",
+      "azure",
+      "Container and Virtualization Enhancements",
+      "Updates to container-related services and virtualization technologies, including changes to AKS and container deployment methods.",
+      0.2850955643707176,
+      5,
+      "2025-04-22 23:14:00.587251"
+    ],
+    [
+      25,
+      "2025-03-24 00:00:00.000000",
+      "azure",
+      "AI and Analytics Integration",
+      "Integration of advanced AI models and analytics capabilities into Azure services, particularly in Databricks environments.",
+      0.2295636494771006,
+      2,
+      "2025-04-22 23:14:00.587254"
+    ],
+    [
+      26,
+      "2025-04-14 00:00:00.000000",
+      "aws",
+      "Enhanced Security and Compliance",
+      "Updates focused on improving security features, compliance certifications, and data protection capabilities across AWS services.",
+      0.4468421052631579,
+      6,
+      "2025-04-22 23:14:00.587256"
+    ],
+    [
+      27,
+      "2025-04-14 00:00:00.000000",
+      "aws",
+      "Expanded Regional Availability",
+      "Rollout of AWS services to new geographic regions, increasing global coverage and data residency options.",
+      0.4268421052631579,
+      7,
+      "2025-04-22 23:14:00.587259"
+    ],
+    [
+      28,
+      "2025-04-14 00:00:00.000000",
+      "aws",
+      "Performance and Scalability Improvements",
+      "Launches and enhancements aimed at increasing performance, scalability, and efficiency of AWS compute and storage services.",
+      0.4068421052631579,
+      5,
+      "2025-04-22 23:14:00.587262"
+    ],
+    [
+      29,
+      "2025-04-14 00:00:00.000000",
+      "aws",
+      "Improved Observability and Monitoring",
+      "Enhancements to logging, monitoring, and analytics capabilities across various AWS services.",
+      0.4068421052631579,
+      5,
+      "2025-04-22 23:14:00.587265"
+    ],
+    [
+      30,
+      "2025-04-14 00:00:00.000000",
+      "aws",
+      "AI and Machine Learning Advancements",
+      "New features and tools for AI and ML workloads, including generative AI capabilities and model evaluation.",
+      0.36684210526315786,
+      4,
+      "2025-04-22 23:14:00.587267"
+    ],
+    [
+      31,
+      "2025-04-14 00:00:00.000000",
+      "azure",
+      "Enhanced Data Protection and Security",
+      "Improvements in backup capabilities, access controls, and authentication methods to strengthen data protection and security across Azure services.",
+      0.5280185758513932,
+      6,
+      "2025-04-22 23:14:00.587270"
+    ],
+    [
+      32,
+      "2025-04-14 00:00:00.000000",
+      "azure",
+      "Expanded Global Infrastructure",
+      "Expansion of Azure's global footprint with new regions and improved connectivity options to enhance performance and compliance.",
+      0.39743034055727555,
+      3,
+      "2025-04-22 23:14:00.587272"
+    ],
+    [
+      33,
+      "2025-04-14 00:00:00.000000",
+      "azure",
+      "Performance Enhancements",
+      "Improvements in storage and compute performance to boost application efficiency and responsiveness.",
+      0.39743034055727555,
+      3,
+      "2025-04-22 23:14:00.587276"
+    ],
+    [
+      34,
+      "2025-04-14 00:00:00.000000",
+      "azure",
+      "Advanced Routing and Networking",
+      "New features for more flexible and powerful routing and networking capabilities in Azure's container and virtual networking services.",
+      0.3439009287925696,
+      2,
+      "2025-04-22 23:14:00.587280"
+    ],
+    [
+      35,
+      "2025-04-14 00:00:00.000000",
+      "azure",
+      "AI and Serverless Integration",
+      "Integration of AI capabilities with serverless computing, enabling more intelligent and scalable applications.",
+      0.3439009287925696,
+      2,
+      "2025-04-22 23:14:00.587289"
+    ],
+    [
+      36,
+      "2025-04-21 00:00:00.000000",
+      "aws",
+      "Performance and Scalability Enhancements",
+      "Improvements in processing power, storage capacity, and throughput limits to handle larger workloads and improve application performance.",
+      0.5531797235023042,
+      5,
+      "2025-04-22 23:14:00.587300"
+    ],
+    [
+      37,
+      "2025-04-21 00:00:00.000000",
+      "aws",
+      "Regional Expansion",
+      "Extension of AWS services and instance types to new geographic regions, improving global availability and reducing latency for customers worldwide.",
+      0.4646082949308755,
+      4,
+      "2025-04-22 23:14:00.587307"
+    ],
+    [
+      38,
+      "2025-04-21 00:00:00.000000",
+      "aws",
+      "AI and Machine Learning Advancements",
+      "Enhancements to AI services and tools for developers to leverage advanced models and improve application intelligence.",
+      0.40746543778801836,
+      2,
+      "2025-04-22 23:14:00.587314"
+    ],
+    [
+      39,
+      "2025-04-21 00:00:00.000000",
+      "aws",
+      "Next-Generation Instance Types",
+      "Introduction of new EC2 instance types powered by latest processor technologies, offering improved performance and energy efficiency.",
+      0.40603686635944697,
+      3,
+      "2025-04-22 23:14:00.587322"
+    ],
+    [
+      40,
+      "2025-04-21 00:00:00.000000",
+      "aws",
+      "Networking and Protocol Upgrades",
+      "Adoption of newer networking protocols and standards to improve connectivity and address space management.",
+      0.3488940092165898,
+      1,
+      "2025-04-22 23:14:00.587329"
+    ],
+    [
+      41,
+      "2025-04-21 00:00:00.000000",
+      "azure",
+      "Expanded Regional Availability",
+      "Azure is expanding the availability of services to new regions, enhancing global reach and data sovereignty options. This includes new regions for storage and data transfer capabilities.",
+      0.5903225806451613,
+      3,
+      "2025-04-22 23:14:00.587336"
+    ],
+    [
+      42,
+      "2025-04-21 00:00:00.000000",
+      "azure",
+      "Enhanced Data Transfer and Storage",
+      "Improvements in data transfer capabilities and storage options, offering more flexibility and performance for handling large datasets and demanding workloads.",
+      0.5903225806451613,
+      3,
+      "2025-04-22 23:14:00.587344"
+    ],
+    [
+      43,
+      "2025-04-21 00:00:00.000000",
+      "azure",
+      "Cost Optimization Features",
+      "New features and plans aimed at reducing costs for customers, particularly in areas of logging and virtual machine deployment.",
+      0.5103225806451612,
+      2,
+      "2025-04-22 23:14:00.587352"
+    ],
+    [
+      44,
+      "2025-04-21 00:00:00.000000",
+      "azure",
+      "Infrastructure Flexibility",
+      "New options for customizing and optimizing infrastructure deployments, allowing for more diverse and efficient resource allocation.",
+      0.40032258064516124,
+      1,
+      "2025-04-22 23:14:00.587360"
+    ],
+    [
+      45,
+      "2025-03-10 23:31:34.988730",
+      "azure",
+      "Database Service Improvements",
+      "Enhancements to various Azure database services, including PostgreSQL, MySQL, and Cosmos DB, with new features, extensions, and regional support.",
+      0.2936836403033586,
+      10,
+      "2025-04-22 23:31:48.845707"
+    ],
+    [
+      46,
+      "2025-03-10 23:31:34.988730",
+      "azure",
+      "Container and Kubernetes Enhancements",
+      "Significant updates to Azure Kubernetes Service (AKS) and Azure Container Apps, including new features, expanded regional availability, and improved monitoring capabilities.",
+      0.27137594799566633,
+      11,
+      "2025-04-22 23:31:48.845714"
+    ],
+    [
+      47,
+      "2025-03-10 23:31:34.988730",
+      "azure",
+      "Networking and Security Updates",
+      "New features and improvements in Azure networking and security services, including Virtual Network Manager, Front Door Premium, and Firewall updates.",
+      0.23983748645720476,
+      3,
+      "2025-04-22 23:31:48.845718"
+    ],
+    [
+      48,
+      "2025-03-10 23:31:34.988730",
+      "azure",
+      "Migration and Assessment Tools",
+      "New capabilities in Azure Migrate and Azure Site Recovery to facilitate workload migration and disaster recovery planning.",
+      0.20214517876489707,
+      2,
+      "2025-04-22 23:31:48.845722"
+    ],
+    [
+      49,
+      "2025-03-10 23:31:34.988730",
+      "azure",
+      "Analytics and Data Processing",
+      "Updates to Azure Stream Analytics and Azure Data Factory, improving data processing capabilities and integration with other services.",
+      0.20214517876489707,
+      2,
+      "2025-04-22 23:31:48.845725"
+    ],
+    [
+      50,
+      "2025-03-17 23:32:38.737803",
+      "azure",
+      "Service Retirements and Migrations",
+      "Announcements of upcoming retirements for various Azure services and components, with guidance on migration paths and deadlines.",
+      0.3384615384615385,
+      5,
+      "2025-04-22 23:32:49.824173"
+    ],
+    [
+      51,
+      "2025-03-17 23:32:38.737803",
+      "azure",
+      "Performance Testing and Monitoring Advancements",
+      "New tools and services for load testing, API management, and monitoring Kubernetes clusters. These updates aim to improve application performance and developer experience.",
+      0.2764615384615384,
+      3,
+      "2025-04-22 23:32:49.824191"
+    ],
+    [
+      52,
+      "2025-03-17 23:32:38.737803",
+      "azure",
+      "Enhanced Network Security",
+      "Improvements to firewall and networking capabilities for better security and performance. This includes parallel IP group updates and expanded regional support for private link-enabled origins.",
+      0.23046153846153844,
+      2,
+      "2025-04-22 23:32:49.824199"
+    ],
+    [
+      53,
+      "2025-03-17 23:32:38.737803",
+      "azure",
+      "AI and GPU Workload Optimization",
+      "Introduction of serverless GPUs and VM hibernation for GPU VMs, enabling more efficient and cost-effective AI and GPU-intensive workloads.",
+      0.23046153846153844,
+      2,
+      "2025-04-22 23:32:49.824206"
+    ],
+    [
+      54,
+      "2025-03-17 23:32:38.737803",
+      "azure",
+      "Enterprise Database Solutions",
+      "Enhancements to Azure NetApp Files for SAP HANA and Oracle, providing optimized storage solutions for large-scale enterprise database deployments.",
+      0.20046153846153844,
+      2,
+      "2025-04-22 23:32:49.824213"
+    ],
+    [
+      55,
+      "2025-03-03 23:37:17.372156",
+      "azure",
+      "Enhanced Security Features",
+      "Improvements to security capabilities for Azure VMs and storage, including customizable secure boot keys and vaulted backup support.",
+      0.3372573839662447,
+      3,
+      "2025-04-22 23:37:28.052009"
+    ],
+    [
+      56,
+      "2025-03-03 23:37:17.372156",
+      "azure",
+      "Monitoring and Observability Enhancements",
+      "New metrics and logs to provide better visibility into Azure services, including storage replication and load balancer health.",
+      0.3372573839662447,
+      3,
+      "2025-04-22 23:37:28.052024"
+    ],
+    [
+      57,
+      "2025-03-03 23:37:17.372156",
+      "azure",
+      "Service Retirements and Support Changes",
+      "Announcements of upcoming retirements for older services and changes to support timelines.",
+      0.2628129395218003,
+      2,
+      "2025-04-22 23:37:28.052032"
+    ],
+    [
+      58,
+      "2025-03-03 23:37:17.372156",
+      "azure",
+      "Networking Feature Enhancements",
+      "Improvements to networking capabilities for Azure services, allowing for more flexible and efficient network configurations.",
+      0.2628129395218003,
+      2,
+      "2025-04-22 23:37:28.052040"
+    ],
+    [
+      59,
+      "2025-03-03 23:37:17.372156",
+      "azure",
+      "Kubernetes and Container Improvements",
+      "Updates to Azure Kubernetes Service (AKS) related features, including autoscaling for Prometheus metrics collection.",
+      0.21836849507735584,
+      1,
+      "2025-04-22 23:37:28.052047"
+    ]
+  ]
+}

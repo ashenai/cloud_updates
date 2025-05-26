@@ -29,11 +29,14 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: 'pip'
-          
-      - name: Install dependencies
+            - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt pytest pytest-cov
+          
+      - name: Install Playwright browsers
+        run: |
+          playwright install --with-deps
                   
       - name: Run tests with coverage
         id: tests
@@ -155,6 +158,10 @@ jobs:
             do_sudo python3 -m venv /var/www/vhosts/shen-ai.cloud/venv
             source /var/www/vhosts/shen-ai.cloud/venv/bin/activate
             do_sudo pip install --no-cache-dir -r requirements.txt uwsgi
+            
+            # Install Playwright browsers
+            do_sudo chmod +x install_playwright_browsers.py
+            python install_playwright_browsers.py
             
             # Initialize database if needed
             if [ ! -f "instance/cloud_updates.db" ]; then

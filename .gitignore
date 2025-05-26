@@ -51,3 +51,17 @@ instance/
 Thumbs.db
 tests/coverage.xml
 tests/.coverage
+verify_schema.py
+update_test_data_schema.py
+json_decode_fix_summary.md
+analyze_json.py
+simple_verify.py
+test_fixture.py
+test_fixture_setup.py
+test_json_parsing.py
+test_weekly_theme_fix.py
+tests/ui/conftest_new.py
+tests/ui/conftest.py.bak
+test_explanation_formatting.py
+run_homepage_test.py
+homepage_debug.png
