@@ -1012,11 +1012,14 @@ def init_routes(app):
             if not updates:
                 flash('No updates found that need explanations.', 'info')
                 return redirect(url_for('admin'))
-            
             processed = 0
             for update in updates:
                 try:
-                    update.explanation = generate_explanation(update.title)
+                    # Generate the raw explanation
+                    raw_explanation = generate_explanation(update.title)
+                    
+                    # Store the raw text - formatting will be applied when retrieved
+                    update.explanation = raw_explanation
                     processed += 1
                     
                 except Exception as e:
