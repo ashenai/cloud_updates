@@ -16,18 +16,54 @@
         </div>
     </div>
 
+    <!-- Week Selector -->
+    <div class="card mb-4">
+        <div class="card-header bg-dark text-white">
+            <h2 class="h5 mb-0">
+                <i class="fas fa-calendar-alt me-2"></i>Time Period Selection
+            </h2>
+        </div>
+        <div class="card-body">
+            <div class="row">                <div class="col-md-6">
+                    <form id="weekForm" action="{{ url_for('insights') }}" method="get">
+                        <div class="input-group">
+                            <select class="form-select" id="weekSelector" name="week" onchange="this.form.submit()">
+                                <option value="all-time" {% if selected_week == 'all-time' %}selected{% endif %}>All Time</option>
+                                {% for week in available_weeks %}
+                                <option value="{{ week.value }}" {% if selected_week == week.value %}selected{% endif %}>{{ week.display }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </form>
+                </div>
+                <div class="col-md-6">
+                    <p class="mt-2 mb-0 text-muted">
+                        {% if selected_week == 'all-time' %}
+                        Showing cumulative data for all time
+                        {% else %}
+                        Showing data for week of {{ selected_insight.week_start.strftime('%b %d, %Y') }}
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Product/Category Distribution -->
-    {% if latest_insight %}
+    {% if selected_insight %}
     <div class="row">
         <!-- AWS Products -->
         <div class="col-md-6">
             <div class="card mb-4">
                 <div class="card-header bg-dark text-white">
                     <h2 class="h5 mb-0">
-                        <i class="fab fa-aws me-2"></i>Top AWS Products
+                        <i class="fab fa-aws me-2"></i>Top AWS Products 
+                        {% if selected_week == 'all-time' %}(All Time){% else %}({{ selected_insight.week_start.strftime('%b %d, %Y') }}){% endif %}
                     </h2>
-                </div>
-                <div class="card-body">
+                </div>                <div class="card-body">
+                    <div id="awsNoDataMsg" class="text-center py-4 d-none">
+                        <p class="text-muted">No data available</p>
+                    </div>
                     <canvas id="awsProductsChart"></canvas>
                 </div>
             </div>
@@ -39,9 +75,12 @@
                 <div class="card-header bg-dark text-white">
                     <h2 class="h5 mb-0">
                         <i class="fab fa-microsoft me-2"></i>Top Azure Categories
+                        {% if selected_week == 'all-time' %}(All Time){% else %}({{ selected_insight.week_start.strftime('%b %d, %Y') }}){% endif %}
                     </h2>
-                </div>
-                <div class="card-body">
+                </div>                <div class="card-body">
+                    <div id="azureNoDataMsg" class="text-center py-4 d-none">
+                        <p class="text-muted">No data available</p>
+                    </div>
                     <canvas id="azureCategoriesChart"></canvas>
                 </div>
             </div>
@@ -55,10 +94,20 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Safely parse JSON with fallbacks
+    function safeJsonParse(jsonStr, defaultValue = []) {
+        try {
+            return JSON.parse(jsonStr);
+        } catch (e) {
+            console.error('Error parsing JSON:', e, jsonStr);
+            return defaultValue;
+        }
+    }
+    
     const chartData = {
-        weeks: JSON.parse('{{ weeks | tojson | safe }}'),
-        awsCounts: JSON.parse('{{ aws_counts | tojson | safe }}'),
-        azureCounts: JSON.parse('{{ azure_counts | tojson | safe }}')
+        weeks: safeJsonParse('{{ weeks | tojson | safe }}', []),
+        awsCounts: safeJsonParse('{{ aws_counts | tojson | safe }}', []),
+        azureCounts: safeJsonParse('{{ azure_counts | tojson | safe }}', [])
     };
 
     const trendConfig = {
@@ -100,66 +149,104 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     };
 
-    new Chart(document.getElementById('trendChart').getContext('2d'), trendConfig);
-
-    {% if latest_insight %}
-    const productData = {
-        aws: {
-            labels: JSON.parse('{{ latest_insight.aws_top_products | map(attribute="name") | list | tojson | safe }}'),
-            data: JSON.parse('{{ latest_insight.aws_top_products | map(attribute="count") | list | tojson | safe }}')
-        },
-        azure: {
-            labels: JSON.parse('{{ latest_insight.azure_top_categories | map(attribute="name") | list | tojson | safe }}'),
-            data: JSON.parse('{{ latest_insight.azure_top_categories | map(attribute="count") | list | tojson | safe }}')
-        }
-    };
-
-    const awsConfig = {
-        type: 'bar',
-        data: {
-            labels: productData.aws.labels,
-            datasets: [{
-                label: 'Updates',
-                data: productData.aws.data,
-                backgroundColor: ['#FF9900', '#FFB13D', '#FFC266', '#FFD699', '#FFE4B3']
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: { legend: { display: false } },
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    ticks: { stepSize: 1 }
+    new Chart(document.getElementById('trendChart').getContext('2d'), trendConfig);      {% if selected_insight %}
+    // Get AWS products data
+    let awsLabels = [];
+    let awsData = [];
+    let hasAwsData = false;
+    
+    {% if selected_insight.aws_top_products %}
+    try {
+        awsLabels = safeJsonParse('{{ selected_insight.aws_top_products | map(attribute="name") | list | tojson | safe }}', []);
+        awsData = safeJsonParse('{{ selected_insight.aws_top_products | map(attribute="count") | list | tojson | safe }}', []);
+        hasAwsData = awsLabels.length > 0 && awsData.length > 0;
+    } catch (e) {
+        console.error('Error parsing AWS data:', e);
+    }
+    {% endif %}
+    
+    // Get Azure categories data
+    let azureLabels = [];
+    let azureData = [];
+    let hasAzureData = false;
+    
+    {% if selected_insight.azure_top_categories %}
+    try {
+        azureLabels = safeJsonParse('{{ selected_insight.azure_top_categories | map(attribute="name") | list | tojson | safe }}', []);
+        azureData = safeJsonParse('{{ selected_insight.azure_top_categories | map(attribute="count") | list | tojson | safe }}', []);
+        hasAzureData = azureLabels.length > 0 && azureData.length > 0;
+    } catch (e) {
+        console.error('Error parsing Azure data:', e);
+    }
+    {% endif %}
+    
+    // Show/hide no data messages
+    document.getElementById('awsNoDataMsg').classList.toggle('d-none', hasAwsData);
+    document.getElementById('awsProductsChart').classList.toggle('d-none', !hasAwsData);
+    
+    document.getElementById('azureNoDataMsg').classList.toggle('d-none', hasAzureData);
+    document.getElementById('azureCategoriesChart').classList.toggle('d-none', !hasAzureData);    // Only create the charts if we have data
+    if (hasAwsData) {
+        const awsConfig = {
+            type: 'bar',
+            data: {
+                labels: awsLabels,
+                datasets: [{
+                    label: 'Updates',
+                    data: awsData,
+                    backgroundColor: ['#FF9900', '#FFB13D', '#FFC266', '#FFD699', '#FFE4B3']
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: { 
+                    legend: { display: false },
+                    title: {
+                        display: true,
+                        text: '{% if selected_week == "all-time" %}Cumulative Counts{% else %}Weekly Counts{% endif %}'
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: { stepSize: 1 }
+                    }
                 }
             }
-        }
-    };
-
-    const azureConfig = {
-        type: 'bar',
-        data: {
-            labels: productData.azure.labels,
-            datasets: [{
-                label: 'Updates',
-                data: productData.azure.data,
-                backgroundColor: ['#008AD7', '#00A2ED', '#00B7FF', '#33C6FF', '#66D5FF']
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: { legend: { display: false } },
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    ticks: { stepSize: 1 }
+        };
+        new Chart(document.getElementById('awsProductsChart').getContext('2d'), awsConfig);
+    }
+    
+    if (hasAzureData) {
+        const azureConfig = {
+            type: 'bar',
+            data: {
+                labels: azureLabels,
+                datasets: [{
+                    label: 'Updates',
+                    data: azureData,
+                    backgroundColor: ['#008AD7', '#00A2ED', '#00B7FF', '#33C6FF', '#66D5FF']
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: { 
+                    legend: { display: false },
+                    title: {
+                        display: true,
+                        text: '{% if selected_week == "all-time" %}Cumulative Counts{% else %}Weekly Counts{% endif %}'
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: { stepSize: 1 }
+                    }
                 }
             }
-        }
-    };
-
-    new Chart(document.getElementById('awsProductsChart').getContext('2d'), awsConfig);
-    new Chart(document.getElementById('azureCategoriesChart').getContext('2d'), azureConfig);
+        };
+        new Chart(document.getElementById('azureCategoriesChart').getContext('2d'), azureConfig);
+    }
     {% endif %}
 });
 </script>

@@ -111,6 +111,7 @@ class WeeklyInsight(db.Model):
     azure_updates = db.Column(db.Integer, default=0)
     aws_top_products = db.Column(db.JSON)  # Store top 5 AWS products and their counts
     azure_top_categories = db.Column(db.JSON)  # Store top 5 Azure categories and their counts
+    is_cumulative = db.Column(db.Boolean, default=False)  # Flag to identify cumulative insights
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     def __repr__(self):

@@ -367,6 +367,10 @@ def init_routes(app):
             # Define categories to ignore
             ignored_categories = {'In preview', 'Launched', 'General availability', 'Generally available'}
             
+            # Dictionaries for tracking cumulative counts across all weeks
+            cumulative_aws_products = {}
+            cumulative_azure_categories = {}
+            
             # Generate insights for each week
             current_week = start_date
             while current_week < end_date:
@@ -390,28 +394,33 @@ def init_routes(app):
                 azure_count = len(azure_updates)
                 
                 if aws_count > 0 or azure_count > 0:
-                    # Get top AWS products
-                    aws_products = {}
+                    # Calculate weekly AWS products
+                    weekly_aws_products = {}
                     for update in aws_updates:
                         if update.product_name:
-                            aws_products[update.product_name] = aws_products.get(update.product_name, 0) + 1
+                            weekly_aws_products[update.product_name] = weekly_aws_products.get(update.product_name, 0) + 1
+                            # Also update cumulative counts
+                            cumulative_aws_products[update.product_name] = cumulative_aws_products.get(update.product_name, 0) + 1
                     
-                    aws_top_products = [
-                        {"name": name, "count": count}
-                        for name, count in sorted(aws_products.items(), key=lambda x: x[1], reverse=True)[:5]
-                    ]
-                    
-                    # Get top Azure categories
-                    azure_categories = {}
+                    # Calculate weekly Azure categories
+                    weekly_azure_categories = {}
                     for update in azure_updates:
                         # For Azure, use the categories but ignore status categories
                         categories = [cat for cat in update.categories if cat not in ignored_categories]
                         for category in categories:
-                            azure_categories[category] = azure_categories.get(category, 0) + 1
+                            weekly_azure_categories[category] = weekly_azure_categories.get(category, 0) + 1
+                            # Also update cumulative counts
+                            cumulative_azure_categories[category] = cumulative_azure_categories.get(category, 0) + 1
+                    
+                    # Get top weekly products/categories for this specific week
+                    aws_top_products = [
+                        {"name": name, "count": count}
+                        for name, count in sorted(weekly_aws_products.items(), key=lambda x: x[1], reverse=True)[:5]
+                    ]
                     
                     azure_top_categories = [
                         {"name": name, "count": count}
-                        for name, count in sorted(azure_categories.items(), key=lambda x: x[1], reverse=True)[:5]
+                        for name, count in sorted(weekly_azure_categories.items(), key=lambda x: x[1], reverse=True)[:5]
                     ]
                     
                     # Create insight
@@ -427,8 +436,31 @@ def init_routes(app):
                 
                 current_week = week_end
             
+            # Calculate cumulative top products/categories across all weeks
+            cumulative_aws_top_products = [
+                {"name": name, "count": count}
+                for name, count in sorted(cumulative_aws_products.items(), key=lambda x: x[1], reverse=True)[:5]
+            ]
+            
+            cumulative_azure_top_categories = [
+                {"name": name, "count": count}
+                for name, count in sorted(cumulative_azure_categories.items(), key=lambda x: x[1], reverse=True)[:5]
+            ]
+            
+            # Create an insight for the "All Time" data
+            all_time_insight = WeeklyInsight(
+                week_start=start_date,
+                week_end=end_date,
+                aws_updates=Update.query.filter_by(provider='aws').count(),
+                azure_updates=Update.query.filter_by(provider='azure').count(),
+                aws_top_products=cumulative_aws_top_products,
+                azure_top_categories=cumulative_azure_top_categories,
+                is_cumulative=True  # Add a flag to identify this as cumulative data
+            )
+            db.session.add(all_time_insight)
+            
             db.session.commit()
-            flash('Successfully generated insights.', 'success')
+            flash('Successfully generated insights with cumulative totals.', 'success')
         except Exception as e:
             db.session.rollback()
             flash(f'Error generating insights: {str(e)}', 'error')
@@ -774,7 +806,7 @@ def init_routes(app):
                 update.status = metadata['status']
                 count += 1
                 
-                print(f"Processed: {update.title}")
+                print(f"Processed: {update.title}")                
                 print(f"  - Primary Product: {update.product_name}")
                 print(f"  - All Products: {update.product_names}")
                 print(f"  - Update Types: {update.update_types}")
@@ -784,46 +816,99 @@ def init_routes(app):
             db.session.commit()
             
             return f"Successfully reprocessed {count} Azure updates with new categorization."
-        except Exception as e:
+        except Exception as e:            
             db.session.rollback()
             import traceback
             traceback.print_exc()
             return f"Error reprocessing Azure updates: {str(e)}"
-
+            
     @app.route('/health')
     def health_check():
         return jsonify({"status": "healthy", "timestamp": datetime.utcnow().isoformat()}), 200
-
+        
     @app.route('/insights')
     def insights():
         """Show insights page."""
-        # Get weekly insights
-        insights = WeeklyInsight.query.order_by(WeeklyInsight.week_start.desc()).all()
+        # Get selected week if provided, otherwise default to "all-time"
+        selected_week_str = request.args.get('week', 'all-time')
         
-        # Prepare data for charts
+        # Get weekly insights (excluding cumulative ones)
+        insights = WeeklyInsight.query.filter_by(is_cumulative=False).order_by(WeeklyInsight.week_start.desc()).all()
+        
+        # Prepare data for trend charts
         weeks = []
         aws_counts = []
         azure_counts = []
         
-        for insight in insights:  
+        # Prepare data for week picker
+        available_weeks = []
+        
+        for insight in insights:
+            # Format for trend chart
             weeks.append(insight.week_start.strftime('%b %d'))
             aws_counts.append(insight.aws_updates)
             azure_counts.append(insight.azure_updates)
+            
+            # Format for week picker dropdown
+            week_str = insight.week_start.strftime('%Y-%m-%d')
+            week_display = insight.week_start.strftime('%b %d, %Y')
+            available_weeks.append({
+                'value': week_str,
+                'display': week_display
+            })
         
         # Reverse lists to show chronological order
         weeks.reverse()
         aws_counts.reverse()
         azure_counts.reverse()
         
-        # Get latest insight for product/category charts
-        latest_insight = WeeklyInsight.query.order_by(WeeklyInsight.week_start.desc()).first()
+        # Get cumulative insight for all-time data
+        cumulative_insight = WeeklyInsight.query.filter_by(is_cumulative=True).first()
         
+        # By default, show all-time data
+        selected_insight = cumulative_insight
+          # If a specific week is selected, find that insight
+        if selected_week_str != 'all-time':
+            try:
+                selected_date = datetime.strptime(selected_week_str, '%Y-%m-%d')
+                # Use string comparisons for more reliable date matching
+                week_start_str = selected_date.strftime('%Y-%m-%d')
+                
+                # First try exact match with string comparison of date
+                for insight in insights:
+                    if insight.week_start.strftime('%Y-%m-%d') == week_start_str:
+                        selected_insight = insight
+                        break
+                else:
+                    # Fallback to range query if no exact match found
+                    selected_insight = WeeklyInsight.query.filter(
+                        WeeklyInsight.is_cumulative == False,
+                        WeeklyInsight.week_start >= selected_date,
+                        WeeklyInsight.week_start < selected_date + timedelta(days=7)
+                    ).first()
+                
+                # If not found, fall back to cumulative
+                if not selected_insight:
+                    selected_insight = cumulative_insight
+                    selected_week_str = 'all-time'
+            except ValueError:
+                # Invalid date format, use cumulative
+                selected_insight = cumulative_insight
+                selected_week_str = 'all-time'
+        
+        # Debug: Print insights data to help identify any issues
+        print(f"Selected week: {selected_week_str}")
+        print(f"Selected insight: {selected_insight}")
+        print(f"Available weeks: {available_weeks}")        
         return render_template(
-            'insights.html',
+            'insights.html',  # Using the original template name
             weeks=weeks,
             aws_counts=aws_counts,
             azure_counts=azure_counts,
-            latest_insight=latest_insight
+            selected_insight=selected_insight,
+            cumulative_insight=cumulative_insight,
+            selected_week=selected_week_str,
+            available_weeks=available_weeks
         )
 
     @app.route('/admin')
