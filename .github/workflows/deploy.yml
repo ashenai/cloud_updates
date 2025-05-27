@@ -178,7 +178,7 @@ jobs:
             do_sudo ln -sf /etc/uwsgi/apps-available/cloud_updates.ini /etc/uwsgi/apps-enabled/
             
             # Set up systemd service
-            do_sudo cp apache/cloud_updates.service /etc/systemd/system/
+            do_sudo cp ngnix/cloud_updates.service /etc/systemd/system/
             do_sudo systemctl daemon-reload
             do_sudo systemctl enable cloud_updates
             
