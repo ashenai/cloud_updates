@@ -6,12 +6,12 @@ After=network.target
 Environment=APP_BASE_DIR=/var/www/vhosts/shen-ai.cloud
 Environment=APP_USER=ashenai
 Environment=APP_GROUP=psacln
-User=%E{APP_USER}
-Group=%E{APP_GROUP}
+User=ashenai
+Group=psacln
 RuntimeDirectory=cloud_updates
-WorkingDirectory=%E{APP_BASE_DIR}/cloud_updates
-Environment=PATH=%E{APP_BASE_DIR}/venv/bin
-ExecStart=%E{APP_BASE_DIR}/venv/bin/uwsgi --ini %E{APP_BASE_DIR}/cloud_updates/uwsgi.ini --socket /tmp/cloud_updates.sock --wsgi-file %E{APP_BASE_DIR}/cloud_updates/wsgi.py --callable app --single-interpreter --chmod-socket=666
+WorkingDirectory=/var/www/vhosts/shen-ai.cloud/cloud_updates
+Environment=PATH=/var/www/vhosts/shen-ai.cloud/venv/bin
+ExecStart=/var/www/vhosts/shen-ai.cloud/venv/bin/uwsgi --ini /var/www/vhosts/shen-ai.cloud/cloud_updates/uwsgi.ini --socket /tmp/cloud_updates.sock --wsgi-file /var/www/vhosts/shen-ai.cloud/cloud_updates/wsgi.py --callable app --single-interpreter --chmod-socket=666
 ExecReload=/bin/kill -HUP $MAINPID
 KillSignal=SIGQUIT
 TimeoutStopSec=5
