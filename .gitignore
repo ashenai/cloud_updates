@@ -67,3 +67,4 @@ run_homepage_test.py
 homepage_debug.png
 .github/workflows/deploy.yml.bak
 .github/workflows/deploy.yml.fixed
+coverage.xml
