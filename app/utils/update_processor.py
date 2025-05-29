@@ -73,9 +73,9 @@ class UpdateProcessor:
                 # No longer checking if candidate is in self.aws_services
                 if candidate not in generic_terms:
                     return candidate
-        
-        # 4. Check for "is now" pattern which often indicates a product announcement
-        is_now_pattern = r'((?:Amazon|AWS)\s+[A-Z][a-zA-Z0-9]+(?:\s+[A-Z][a-zA-Z0-9]+)*)\s+(?:[A-Z][a-zA-Z0-9]+(?:\s+[A-Z][a-zA-Z0-9]+)*\s+)*is\s+now'
+          # 4. Check for "is now" pattern which often indicates a product announcement
+        # Fixed regex to avoid exponential backtracking by simplifying the pattern
+        is_now_pattern = r'((?:Amazon|AWS)\s+[A-Z][a-zA-Z0-9]+(?:\s+[A-Z][a-zA-Z0-9]+){0,5})\s+.*?\bis\s+now'
         match = re.search(is_now_pattern, title)
         if match:
             candidate = match.group(1).strip()
