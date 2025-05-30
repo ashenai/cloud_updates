@@ -819,9 +819,8 @@ def init_routes(app):
             return f"Successfully reprocessed {count} Azure updates with new categorization."
         except Exception as e:            
             db.session.rollback()
-            import traceback
-            traceback.print_exc()
-            return f"Error reprocessing Azure updates: {str(e)}"
+            current_app.logger.error(f"Error reprocessing Azure updates: {str(e)}", exc_info=True)
+            return jsonify({'error': 'An internal error occurred while reprocessing Azure updates'}), 500
             
     @app.route('/health')
     def health_check():
