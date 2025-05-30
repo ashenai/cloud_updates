@@ -623,9 +623,7 @@ def init_routes(app):
         if results:
             current_app.logger.info(f"Top result score: {results[0]['score']:.2f}")
         
-        return render_template('search.html', query=query, results=results)
-
-    @app.route('/admin/rebuild_search')
+        return render_template('search.html', query=query, results=results)    @app.route('/admin/rebuild_search')
     def admin_rebuild_search():
         try:
             # Get all updates
@@ -641,37 +639,8 @@ def init_routes(app):
             current_app.logger.error(f"Error rebuilding search index: {str(e)}")
             flash(f'Error rebuilding search index: {str(e)}', 'error')
         
-        return redirect(url_for('admin'))
-
-    @app.route('/api/calendar-events')
-    def calendar_events():
-        """Get weeks with updates as calendar events."""
-        # Get all update dates
-        updates = Update.query.with_entities(
-            Update.published_date, 
-            Update.provider,
-            func.count(Update.id).label('count')
-        ).group_by(
-            func.date_trunc('week', Update.published_date),
-            Update.provider
-        ).all()
-
-        events = []
-        for date, provider, count in updates:
-            week_start = get_week_start(date)
-            week_end = week_start + timedelta(days=6)
-            
-            events.append({
-                'title': f'{provider.upper()}: {count} updates',
-                'start': week_start.strftime('%Y-%m-%d'),
-                'end': week_end.strftime('%Y-%m-%d'),
-                'url': url_for('themes', week=week_start.strftime('%Y-%m-%d')),
-                'backgroundColor': '#007bff' if provider == 'aws' else '#dc3545',
-                'borderColor': '#0056b3' if provider == 'aws' else '#a71d2a'
-            })
-        
-        return jsonify(events)
-
+        return redirect(url_for('admin'))    
+    
     @app.route('/debug')
     def debug():
         aws_updates = Update.query.filter_by(provider='aws').order_by(Update.published_date.desc()).limit(3).all()
