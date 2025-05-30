@@ -1073,7 +1073,7 @@ def init_routes(app):
         except Exception as e:
             current_app.logger.error(f"Error in get_update_explanation: {str(e)}")
             return jsonify({
-                'error': f"Failed to fetch explanation: {str(e)}"
+                'error': 'An internal error has occurred.'
             }), 500
 
     @app.route('/api/update/<int:update_id>/generate_explanation', methods=['POST'])
