@@ -26,6 +26,7 @@ from app import create_app, db
 import threading
 import time
 import schedule
+import os
 from app.scraper.aws_scraper import AWSScraper
 from app.scraper.azure_scraper import AzureScraper
 from app.models import Update, WeeklyInsight
@@ -112,5 +113,9 @@ if __name__ == '__main__':
     scheduler_thread.daemon = True
     scheduler_thread.start()
     
-    # Run the Flask application
-    app.run(debug=True)
+    # Determine if we're in development or production
+    # Use environment variable or default to production (debug=False)
+    is_development = os.environ.get('FLASK_ENV', '').lower() == 'development'
+    
+    # Run the Flask application with debug mode only in development
+    app.run(debug=is_development)
