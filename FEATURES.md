@@ -34,8 +34,6 @@ This document outlines the key features of the Cloud Updates application.
     *   Displays insights on a dedicated page, filterable by week.
     *   Provides an "All-Time" cumulative insight.
     *   Includes trend charts for AWS and Azure update counts over time.
-*   **Calendar View:**
-    *   Provides an API endpoint (`/api/calendar-events`) that shows weeks with updates, suitable for calendar integration.
 
 **Administration & Management:**
 
@@ -60,7 +58,6 @@ This document outlines the key features of the Cloud Updates application.
 
 *   **Database:** Uses SQLAlchemy for database interactions (models include `Update`, `WeeklyInsight`, `WeeklyTheme`).
 *   **API Endpoints:**
-    *   `/api/calendar-events`: For calendar integration.
     *   `/api/update/<id>/explain`: To get or generate an explanation for an update.
 *   **Health Check:** `/health` endpoint for monitoring application status.
 *   **Deployment & Configuration:** Includes scripts and configuration files for deployment (e.g., `deploy.sh`, `gunicorn_config.py`, `nginx/`, `apache/`).
