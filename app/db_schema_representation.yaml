@@ -1,0 +1,48 @@
+# Database Schema Representation for Natural Language Querying
+
+tables:
+  - name: update  # Corresponds to the 'Update' SQLAlchemy model
+    description: "Stores information about cloud provider updates (e.g., AWS, Azure)."
+    columns:
+      - name: id
+        data_type: INTEGER
+        is_primary_key: true
+        description: "Unique identifier for the update."
+      - name: provider
+        data_type: TEXT
+        description: "The cloud provider (e.g., 'aws', 'azure')."
+        examples: ["aws", "azure"]
+      - name: title
+        data_type: TEXT
+        description: "The title of the update announcement."
+      - name: description
+        data_type: TEXT
+        description: "A detailed description of the update."
+      - name: url
+        data_type: TEXT
+        description: "URL linking to the official update announcement."
+      - name: published_date
+        data_type: DATETIME
+        description: "The date the update was published."
+      - name: categories
+        data_type: TEXT_ARRAY # Effectively, as it's a JSON string list
+        description: "A list of categories associated with the update (e.g., 'Compute', 'Storage', 'Networking')."
+        examples: ["Compute", "Database", "Machine Learning"]
+      - name: update_types
+        data_type: TEXT_ARRAY # Effectively, as it's a JSON string list
+        description: "Type of update (e.g., 'New Feature', 'Improvement', 'Preview')."
+        examples: ["New Feature", "Security Update", "Instance Type"]
+      - name: product_name # This seems to be the primary product name
+        data_type: TEXT
+        description: "The primary product or service name associated with the update (e.g., 'EC2', 'S3', 'Azure Functions')."
+        examples: ["EC2", "S3", "Azure Blob Storage", "Azure Functions"]
+      - name: product_names # For Azure, this holds all associated product names
+        data_type: TEXT_ARRAY # Effectively, as it's a JSON string list
+        description: "A list of all product names associated with the update, especially relevant for Azure updates."
+      - name: status
+        data_type: TEXT_ARRAY # Effectively, as it's a JSON string list
+        description: "Status tags for the update, primarily for Azure (e.g., 'Generally Available', 'Preview')."
+        examples: ["Generally Available", "Preview", "Deprecated"]
+      - name: explanation
+        data_type: TEXT
+        description: "A brief explanation of the update, potentially AI-generated."

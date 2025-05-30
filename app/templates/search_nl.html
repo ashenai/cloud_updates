@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Natural Language Search</title>
+    <style>
+        body { font-family: sans-serif; margin: 20px; background-color: #f4f4f4; color: #333; }
+        .container { max-width: 800px; margin: auto; background: white; padding: 20px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        #queryInput { width: calc(100% - 22px); padding: 10px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 4px;}
+        #submitBtn { padding: 10px 15px; background-color: #5cb85c; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        #submitBtn:hover { background-color: #4cae4c; }
+        #resultsArea { margin-top: 20px; border: 1px solid #ddd; padding: 10px; min-height: 100px; background-color: #f9f9f9; border-radius: 4px; }
+        .error { color: #d9534f; }
+        table { border-collapse: collapse; width: 100%; margin-top:10px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+        h1 { color: #337ab7; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Cloud Updates - Natural Language Search</h1>
+        <input type="text" id="queryInput" placeholder="E.g., which is the AWS service with the most updates?">
+        <button id="submitBtn">Search</button>
+        <div id="resultsArea">
+            <p>Enter your query above and click Search.</p>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('submitBtn').addEventListener('click', function() {
+            const query = document.getElementById('queryInput').value;
+            const resultsArea = document.getElementById('resultsArea');
+            resultsArea.innerHTML = '<p>Loading...</p>';
+
+            if (!query) {
+                resultsArea.innerHTML = '<p class="error">Please enter a query.</p>';
+                return;
+            }
+
+            fetch('/api/nl_search/', { // This is the API endpoint, not the page route
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ query: query }),
+            })
+            .then(response => {
+                if (!response.ok) {
+                    // Try to parse error from JSON body if possible
+                    return response.json().then(err => { throw new Error(err.error || `HTTP error! status: ${response.status}`) });
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success && data.data) {
+                    if (data.data.length === 0) {
+                        resultsArea.innerHTML = '<p>No results found.</p>';
+                    } else {
+                        let htmlOutput = '<table><thead><tr>';
+                        Object.keys(data.data[0]).forEach(key => {
+                            htmlOutput += `<th>${escapeHtml(key)}</th>`;
+                        });
+                        htmlOutput += '</tr></thead><tbody>';
+                        data.data.forEach(item => {
+                            htmlOutput += '<tr>';
+                            Object.values(item).forEach(value => {
+                                htmlOutput += `<td>${escapeHtml(String(value))}</td>`;
+                            });
+                            htmlOutput += '</tr>';
+                        });
+                        htmlOutput += '</tbody></table>';
+                        resultsArea.innerHTML = htmlOutput;
+                    }
+                } else {
+                    resultsArea.innerHTML = `<p class="error">Error: ${escapeHtml(data.error || 'Unknown error')}</p>`;
+                }
+            })
+            .catch(error => {
+                console.error('Fetch Error:', error);
+                resultsArea.innerHTML = `<p class="error">An error occurred: ${escapeHtml(String(error.message || error))}</p>`;
+            });
+        });
+
+        function escapeHtml(unsafe) {
+            if (unsafe === null || typeof unsafe === 'undefined') {
+                return '';
+            }
+            return unsafe
+                 .toString()
+                 .replace(/&/g, "&amp;")
+                 .replace(/</g, "&lt;")
+                 .replace(/>/g, "&gt;")
+                 .replace(/"/g, "&quot;")
+                 .replace(/'/g, "&#039;");
+        }
+    </script>
+</body>
+</html>

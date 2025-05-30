@@ -1,3 +1,144 @@
+from flask import Blueprint, request, jsonify, current_app
+from app.query_parser import QueryParser
+from app.sql_generator import SQLGenerator
+from app.db_executor import execute_query
+import yaml
+import os
+
+# Define a new Blueprint for our search API
+nl_search_bp = Blueprint('nl_search_bp', __name__, url_prefix='/api/nl_search')
+
+# --- Initialization of Parser and Generator ---
+# Construct absolute path to schema file, assuming this file (routes.py) is in 'app' directory
+# and schema is in 'app/db_schema_representation.yaml'
+# Project root is one level up from 'app'
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+SCHEMA_FILE_PATH = os.path.join(PROJECT_ROOT, "app/db_schema_representation.yaml")
+
+DB_SCHEMA = None
+query_parser_instance = None
+sql_generator_instance = None
+
+# Global flag to indicate initialization status
+initialization_failed_flag = False
+initialization_error_message = ""
+
+def initialize_nlp_components():
+    global DB_SCHEMA, query_parser_instance, sql_generator_instance, initialization_failed_flag, initialization_error_message
+
+    # Ensure this runs only once if called multiple times, though Flask blueprint setup usually handles this.
+    if query_parser_instance and sql_generator_instance and not initialization_failed_flag:
+        # If already successfully initialized, no need to do it again.
+        return
+
+    try:
+        with open(SCHEMA_FILE_PATH, 'r') as f:
+            DB_SCHEMA = yaml.safe_load(f)
+
+        if not DB_SCHEMA:
+            initialization_error_message = "CRITICAL: DB schema loaded as None or empty."
+            initialization_failed_flag = True
+            # Use a placeholder logger if current_app is not available during early init
+            logger = current_app.logger if current_app else print
+            logger(initialization_error_message) # Print if logger not available
+            return
+
+        # schema_path for QueryParser is relative to project root
+        query_parser_instance = QueryParser(schema_path="app/db_schema_representation.yaml")
+        if not query_parser_instance.target_table_schema: # Check if parser loaded schema correctly
+             initialization_error_message = "QueryParser failed to load its schema or target table."
+             initialization_failed_flag = True
+             logger = current_app.logger if current_app else print
+             logger(initialization_error_message)
+             return
+
+        sql_generator_instance = SQLGenerator(db_schema_representation=DB_SCHEMA)
+
+        log_msg = "QueryParser and SQLGenerator initialized successfully for nl_search_bp."
+        logger = current_app.logger if current_app else print
+        logger(log_msg)
+        initialization_failed_flag = False
+
+    except Exception as e:
+        initialization_error_message = f"CRITICAL: Failed to load DB schema or initialize parsers at {SCHEMA_FILE_PATH}: {e}"
+        initialization_failed_flag = True
+        logger = current_app.logger if current_app else print
+        logger(initialization_error_message) # Fallback for issues during initial loading
+
+# Attempt to initialize when module is loaded.
+# This function will be called when the blueprint is registered or module imported.
+# If current_app is not available (e.g. during flask shell context setup or early import),
+# logging might use print. This is a common challenge with global-like initializations in Flask.
+initialize_nlp_components()
+
+# Import render_template if it's not already imported at the top of the existing content
+# (Checking the provided content, it is imported much later, so we should ensure it's available here or move its import)
+# For this diff, we'll assume flask.render_template is available or add its import if needed.
+# The existing routes file imports it as: from flask import render_template, flash, redirect, url_for, request, jsonify, current_app
+# So, it should be available.
+
+@nl_search_bp.route('/page', methods=['GET'])
+def natural_language_search_page_render():
+    """Renders the Natural Language Search HTML page."""
+    return render_template('search_nl.html')
+
+
+@nl_search_bp.route('/', methods=['POST'])
+def natural_language_search_route():
+    # Check if initialization failed
+    if initialization_failed_flag or not query_parser_instance or not sql_generator_instance:
+        logger = current_app.logger if current_app else print
+        error_msg_log = f"Endpoint /api/nl_search/ called but parser/generator not initialized. Error: {initialization_error_message}"
+        error_msg_user = "Server configuration error: NLP components not initialized."
+        if initialization_error_message and (current_app and current_app.debug): # Add more detail if in debug mode
+             error_msg_user += f" Reason: {initialization_error_message}"
+
+        logger(error_msg_log)
+        return jsonify({"error": error_msg_user}), 500
+
+    data = request.get_json()
+    if not data or "query" not in data:
+        return jsonify({"error": "Missing 'query' in request body"}), 400
+
+    natural_query = data["query"]
+    current_app.logger.info(f"Received natural language query for /api/nl_search/: {natural_query}")
+
+    try:
+        # Ensure components are valid after all checks
+        if not query_parser_instance or not query_parser_instance.target_table_schema:
+             current_app.logger.error("QueryParser not available or not properly initialized at request time.")
+             return jsonify({"error": "Server error: QueryParser not available"}), 500
+        if not sql_generator_instance:
+            current_app.logger.error("SQLGenerator not available at request time.")
+            return jsonify({"error": "Server error: SQLGenerator not available"}), 500
+
+        parsed_q = query_parser_instance.parse_query(natural_query)
+        current_app.logger.debug(f"Parsed query: {parsed_q}")
+        if parsed_q.get("error"):
+            current_app.logger.warning(f"Query parsing failed: {parsed_q['error']}")
+            return jsonify({"error": f"Query parsing failed: {parsed_q['error']}"}), 400
+
+        sql_query_str, params = sql_generator_instance.generate_sql(parsed_q)
+        current_app.logger.info(f"Generated SQL: {sql_query_str}, Params: {params}")
+
+        db_response = execute_query(sql_query_str, params)
+
+        if db_response["success"]:
+            current_app.logger.info(f"Query successful, returning {len(db_response.get('data', []))} results.")
+            return jsonify({"success": True, "data": db_response["data"]}), 200
+        else:
+            current_app.logger.error(f"Database query failed: {db_response['error']}")
+            # Potentially hide detailed DB errors from user in production
+            user_db_error = "Database query execution failed."
+            if current_app.debug: # Show more detail if in debug mode
+                user_db_error += f" Details: {db_response['error']}"
+            return jsonify({"success": False, "error": user_db_error}), 500
+
+    except Exception as e:
+        current_app.logger.error(f"Unhandled exception in natural_language_search: {e}", exc_info=True)
+        return jsonify({"error": f"An unexpected error occurred: {str(e)}"}), 500
+
+# Existing content starts below
 """
 Copyright 2025 Aavind K Shenai
 
@@ -23,7 +164,7 @@ to ensure its accuracy and functionality, users should:
 """
 
 from datetime import datetime, timedelta, date
-from flask import render_template, flash, redirect, url_for, request, jsonify, current_app
+from flask import flash, redirect, url_for, request, jsonify, current_app # render_template is already used above
 from sqlalchemy import func, extract
 from app import db
 from app.models import Update, WeeklyInsight, WeeklyTheme

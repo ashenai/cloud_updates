@@ -74,8 +74,9 @@ def create_app(config_class=Config):
     migrate.init_app(app, db)
 
     # Register blueprints
-    from app.routes import init_routes
+    from app.routes import init_routes, nl_search_bp # Import the new blueprint
     init_routes(app)
+    app.register_blueprint(nl_search_bp) # Register the new blueprint
 
     # Initialize CLI commands
     from app.cli import init_app as init_cli
