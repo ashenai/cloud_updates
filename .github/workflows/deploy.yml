@@ -1,5 +1,7 @@
 name: Deploy to IONOS VPS
-
+permissions:
+    contents: read
+    pull-requests: write
 on:
   push:
     branches: [ master ]
@@ -18,6 +20,7 @@ env:
   APP_URL: 'https://shen-ai.cloud/cloud_updates'
 
 jobs:
+
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 10
