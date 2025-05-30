@@ -773,9 +773,8 @@ def init_routes(app):
             return f"Successfully reprocessed {count} AWS updates with new product names out of {len(aws_updates)} total."
         except Exception as e:
             db.session.rollback()
-            import traceback
-            traceback.print_exc()
-            return f"Error reprocessing AWS updates: {str(e)}"
+            current_app.logger.error(f"Error reprocessing AWS updates: {str(e)}", exc_info=True)
+            return jsonify({'error': 'An internal error occurred while reprocessing AWS updates'}), 500
 
     @app.route('/reprocess-azure')
     def reprocess_azure():
