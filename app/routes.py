@@ -727,7 +727,8 @@ def init_routes(app):
             
             return jsonify(debug_info)
         except Exception as e:
-            return jsonify({'error': str(e)}), 500
+            current_app.logger.error(f"Error in debug_themes endpoint: {str(e)}", exc_info=True)
+            return jsonify({'error': 'An internal error occurred'}), 500
 
     @app.route('/reprocess-aws')
     def reprocess_aws():
