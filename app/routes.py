@@ -1040,7 +1040,7 @@ def init_routes(app):
                 except Exception as e:
                     current_app.logger.error(f"Error generating explanation: {str(e)}")
                     return jsonify({
-                        'error': f"Failed to generate explanation: {str(e)}"
+                        'error': 'An internal error has occurred.'
                     }), 500
             
             if not update.explanation:
