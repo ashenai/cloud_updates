@@ -79,7 +79,11 @@ def execute_query(sql_query: str, params: list = None) -> dict:
         # db.session.execute can take parameters as a dictionary or a list/tuple
         # depending on how parameters are specified in the query text.
         # For '?' (qmark style), it expects a list/tuple.
-        result_proxy = db.session.execute(compiled_statement, params if params else [])
+
+        # Ensure params is a tuple if it's a list, as some DB-API drivers are strict
+        # Use an empty tuple if params is None, to avoid issues with some drivers
+        execution_params = tuple(params) if isinstance(params, list) else (params if params is not None else ())
+        result_proxy = db.session.execute(compiled_statement, execution_params)
 
         # For SELECT queries, we want to fetch results.
         # .fetchall() returns a list of Row objects.

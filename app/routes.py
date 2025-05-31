@@ -164,7 +164,7 @@ to ensure its accuracy and functionality, users should:
 """
 
 from datetime import datetime, timedelta, date
-from flask import render_template, flash, redirect, url_for, request, jsonify, current_app # render_template is already used above
+from flask import flash, redirect, url_for, request, jsonify, current_app # render_template is already used above
 from sqlalchemy import func, extract
 from app import db
 from app.models import Update, WeeklyInsight, WeeklyTheme
@@ -177,7 +177,6 @@ from app.utils.theme_analyzer_llm import LLMThemeAnalyzer
 from app.utils.theme_analyzer import get_week_start
 from app.utils.cleaner import clean_all_updates
 from app.utils.scraper import scrape_aws_updates, scrape_azure_updates
-
 
 # Initialize search system
 update_search = UpdateSearch()
