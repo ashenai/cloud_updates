@@ -18,6 +18,8 @@ schedule==1.2.1
 scipy==1.10.1
 anthropic==0.49.0
 jiter==0.9.0
+feedparser==6.0.11
+openpyxl==3.1.5
 
 # Testing and CI/CD dependencies
 pytest==7.4.3
