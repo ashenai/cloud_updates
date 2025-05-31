@@ -55,24 +55,94 @@ class QueryParser:
         # Very basic keyword and entity matching
         # This will be significantly improved with more sophisticated NLP techniques
 
-        # Identify keywords for intent
-        if "count" in query_text.lower() or "how many" in query_text.lower():
+        # --- BEGIN NEW LOGIC FOR "top N <entity>" ---
+        is_top_n_query = False
+        limit_number = None
+        group_by_col_for_top_n = None
+
+        for i, token in enumerate(doc):
+            if token.lemma_ == "top" and i + 1 < len(doc) and doc[i+1].like_num:
+                try:
+                    limit_number = int(doc[i+1].text)
+                    is_top_n_query = True
+                    # Try to identify the entity being ranked (e.g., "services", "products")
+                    if i + 2 < len(doc):
+                        entity_token = doc[i+2]
+                        if entity_token.lemma_ in ["service", "product"]:
+                            group_by_col_for_top_n = "product_name"
+                        # Can add more mappings, e.g., "categories" -> "categories"
+                        # elif entity_token.lemma_ in ["category", "categories"]:
+                        #    group_by_col_for_top_n = "categories"
+
+                    # If no specific entity is found right after "top N",
+                    # but query generally mentions "service" or "product", infer it.
+                    if not group_by_col_for_top_n:
+                        if "service" in query_text.lower() or "product" in query_text.lower():
+                            group_by_col_for_top_n = "product_name"
+                    break # Found "top [number]", process one such phrase
+                except ValueError: # Handle cases where doc[i+1].text is not a valid int
+                    is_top_n_query = False # Not a valid top N query
+                    limit_number = None
+
+
+        if is_top_n_query and limit_number is not None and group_by_col_for_top_n is not None:
+            valid_columns = [col['name'] for col in self.target_table_schema['columns']]
+            if group_by_col_for_top_n not in valid_columns:
+                # If the guessed group_by column is not valid, invalidate this path
+                is_top_n_query = False
+
+        if is_top_n_query and limit_number is not None and group_by_col_for_top_n is not None:
+            parsed_query["intent"] = "find_most_frequent_entity" # Specific intent for top N
+            parsed_query["group_by_column"] = group_by_col_for_top_n
+
+            pk_col = self.target_table_schema['columns'][0]['name']
+            for col_def in self.target_table_schema['columns']:
+                if col_def.get('is_primary_key', False):
+                    pk_col = col_def['name']
+                    break
+
+            parsed_query["aggregations"] = [{"type": "COUNT", "column": pk_col, "alias": "mention_count"}]
+            parsed_query["order_by"] = {"column": "mention_count", "direction": "DESC"}
+            parsed_query["limit"] = limit_number
+            parsed_query["select_columns"] = [group_by_col_for_top_n]
+        # --- END NEW LOGIC FOR "top N <entity>" ---
+
+
+        # Identify keywords for intent (general count)
+        # Ensure this doesn't override the more specific "top N" intent if it was set.
+        if (parsed_query["intent"] != "find_most_frequent_entity" or not is_top_n_query) and \
+           ("count" in query_text.lower() or "how many" in query_text.lower()):
             parsed_query["intent"] = "count"
-            # For a count, we typically count primary keys or a distinct column
-            parsed_query["select_columns"] = [] # Clear default select for count
-            parsed_query["aggregations"] = [{"type": "COUNT", "column": self.target_table_schema['columns'][0]['name'], "alias": "total_count"}]
+            parsed_query["select_columns"] = []
+            # Ensure pk_col is defined for count, similar to above logic
+            pk_col_count = self.target_table_schema['columns'][0]['name']
+            for col_def in self.target_table_schema['columns']:
+                if col_def.get('is_primary_key', False):
+                    pk_col_count = col_def['name']
+                    break
+            parsed_query["aggregations"] = [{"type": "COUNT", "column": pk_col_count, "alias": "total_count"}]
 
-
-        if "most" in query_text.lower() and "updates" in query_text.lower() and not "service with the most updates" in query_text.lower(): # e.g., "service with most updates" but not the specific phrase
+        # General "most frequent" intent, if not already handled by "top N" or specific "service with most updates"
+        if parsed_query["intent"] != "find_most_frequent_entity" and \
+           "most" in query_text.lower() and "updates" in query_text.lower() and \
+           not "service with the most updates" in query_text.lower():
             parsed_query["intent"] = "find_most_frequent"
-            # Default to 'product_name' if not specified, can be refined
-            parsed_query["group_by_column"] = "product_name"
+            parsed_query["group_by_column"] = "product_name" # Default group by for general "most"
+            # Ensure pk_col is defined for aggregation count
+            pk_col_agg = self.target_table_schema['columns'][0]['name']
+            for col_def in self.target_table_schema['columns']:
+                if col_def.get('is_primary_key', False):
+                    pk_col_agg = col_def['name']
+                    break
             parsed_query["aggregations"] = [
-                {"type": "COUNT", "column": self.target_table_schema['columns'][0]['name'], "alias": "update_count"}
+                {"type": "COUNT", "column": pk_col_agg, "alias": "update_count"}
             ]
             parsed_query["order_by"] = {"column": "update_count", "direction": "DESC"}
-            parsed_query["limit"] = 5 # Default to top 5
-            parsed_query["select_columns"] = [parsed_query["group_by_column"]] # Select the grouped column
+            parsed_query["limit"] = 5 # Default to top 5 for general "most"
+            if "product_name" in [col['name'] for col in self.target_table_schema['columns']]:
+                 parsed_query["select_columns"] = ["product_name"]
+            else: # Fallback if product_name isn't a column (schema error?)
+                 parsed_query["select_columns"] = [self.target_table_schema['columns'][0]['name']]
 
 
         # Identify known column names and potential values from the query
@@ -132,15 +202,19 @@ class QueryParser:
         # "which is the" -> implies finding a specific entity
         # "AWS service" -> provider = AWS, entity = product_name (service)
         # "most updates" -> intent = find_most_frequent, aggregate by product_name, order by count desc, limit 1
-        if "service with the most updates" in query_text.lower():
-            parsed_query["intent"] = "find_most_frequent_entity" # More specific intent
+        # This specific phrase should only be processed if not already handled by "top N"
+        if not is_top_n_query and "service with the most updates" in query_text.lower():
+            parsed_query["intent"] = "find_most_frequent_entity"
             parsed_query["group_by_column"] = "product_name"
-            # Ensure id is a valid column for counting, or use the first primary key column
-            pk_col = next((col['name'] for col in self.target_table_schema['columns'] if col.get('is_primary_key')), 'id')
-            parsed_query["aggregations"] = [{"type": "COUNT", "column": pk_col, "alias": "update_count"}]
+            pk_col_specific = next((col['name'] for col in self.target_table_schema['columns'] if col.get('is_primary_key')), self.target_table_schema['columns'][0]['name'])
+            parsed_query["aggregations"] = [{"type": "COUNT", "column": pk_col_specific, "alias": "update_count"}]
             parsed_query["order_by"] = {"column": "update_count", "direction": "DESC"}
-            parsed_query["limit"] = 1
-            parsed_query["select_columns"] = ["product_name"] # Only select the product name
+            parsed_query["limit"] = 1 # "the service" implies top 1
+            if "product_name" in [col['name'] for col in self.target_table_schema['columns']]:
+                parsed_query["select_columns"] = ["product_name"]
+            else:
+                parsed_query["select_columns"] = [pk_col_specific]
+
 
             # Check for provider context like "AWS service"
             # Ensure provider filter is not duplicated if already added by NER
@@ -190,7 +264,8 @@ if __name__ == '__main__':
             "show me updates for EC2",
             "count all aws updates",
             "updates about Azure Functions",
-            "Azure updates for Blob Storage" # Test multi-word product
+            "Azure updates for Blob Storage", # Test multi-word product
+            "which are the top 3 AWS services mentioned in the updates" # New test query
         ]
         for q in queries_to_test:
             print(f"Query: {q}")

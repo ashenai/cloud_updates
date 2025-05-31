@@ -71,33 +71,19 @@ def execute_query(sql_query: str, params: list = None) -> dict:
         # For Flask-SQLAlchemy, db.session.execute(text(sql_query), params_dict_or_list)
         # If sql_query uses '?', params should be a list/tuple.
         # If sql_query uses :name, params should be a dict.
-        # Our generator uses '?', so params is a list.        # Convert '?' placeholders to SQLAlchemy named parameters (e.g., :param1, :param2...)
-        # This is more reliable than using '?' with SQLAlchemy
-        param_dict = {}
-        formatted_sql_query = sql_query
-        
-        # Count ? placeholders and replace them with named parameters
-        if params:
-            for i, param in enumerate(params):
-                param_name = f"param{i+1}"
-                # Replace just one '?' at a time to maintain order
-                pos = formatted_sql_query.find('?')
-                if pos >= 0:
-                    formatted_sql_query = formatted_sql_query[:pos] + f":{param_name}" + formatted_sql_query[pos+1:]
-                    # Convert any complex objects to strings to avoid parameter type issues
-                    if not isinstance(param, (str, int, float, bool, type(None))):
-                        param_dict[param_name] = str(param)
-                    else:
-                        param_dict[param_name] = param
-        
+        # Our generator uses '?', so params is a list.
+
         # The `text()` construct is important to declare that this is a SQL string.
-        compiled_statement = text(formatted_sql_query)
-        
-        # Execute with the parameter dictionary
-        if param_dict:
-            result_proxy = db.session.execute(compiled_statement, param_dict)
-        else:
-            result_proxy = db.session.execute(compiled_statement)
+        compiled_statement = text(sql_query)
+
+        # db.session.execute can take parameters as a dictionary or a list/tuple
+        # depending on how parameters are specified in the query text.
+        # For '?' (qmark style), it expects a list/tuple.
+
+        # Ensure params is a tuple if it's a list, as some DB-API drivers are strict
+        # Use an empty tuple if params is None, to avoid issues with some drivers
+        execution_params = tuple(params) if isinstance(params, list) else (params if params is not None else ())
+        result_proxy = db.session.execute(compiled_statement, execution_params)
 
         # For SELECT queries, we want to fetch results.
         # .fetchall() returns a list of Row objects.

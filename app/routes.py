@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify, current_app, render_template
+from flask import Blueprint, request, jsonify, current_app
 from app.query_parser import QueryParser
 from app.sql_generator import SQLGenerator
 from app.db_executor import execute_query
@@ -116,27 +116,12 @@ def natural_language_search_route():
         current_app.logger.debug(f"Parsed query: {parsed_q}")
         if parsed_q.get("error"):
             current_app.logger.warning(f"Query parsing failed: {parsed_q['error']}")
-            return jsonify({"error": f"Query parsing failed: {parsed_q['error']}"}), 400        
+            return jsonify({"error": f"Query parsing failed: {parsed_q['error']}"}), 400
+
         sql_query_str, params = sql_generator_instance.generate_sql(parsed_q)
-        current_app.logger.info(f"Generated SQL: {sql_query_str}")
-        
-        # Debug parameter types and values
-        param_types = []
-        for i, p in enumerate(params):
-            param_types.append(f"{i}: {type(p).__name__} = {p}")
-        current_app.logger.info(f"Params: {param_types}")
-        
-        # Ensure params are all scalar values
-        sanitized_params = []
-        for p in params:
-            if isinstance(p, (str, int, float, bool)) or p is None:
-                sanitized_params.append(p)
-            else:
-                # Convert non-scalars to strings
-                current_app.logger.warning(f"Converting non-scalar parameter to string: {p} (type: {type(p).__name__})")
-                sanitized_params.append(str(p))
-                
-        db_response = execute_query(sql_query_str, sanitized_params)
+        current_app.logger.info(f"Generated SQL: {sql_query_str}, Params: {params}")
+
+        db_response = execute_query(sql_query_str, params)
 
         if db_response["success"]:
             current_app.logger.info(f"Query successful, returning {len(db_response.get('data', []))} results.")
